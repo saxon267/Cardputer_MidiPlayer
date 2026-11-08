@@ -31,6 +31,8 @@ public:
     void panic();
     float bpm() const;
     bool clockValid() const;
+    uint16_t activeNotes() const;
+    uint16_t lastPanicNotes() const { return _lastPanicNotes; }
 
 private:
     static constexpr int QSIZE = 1024;
@@ -77,6 +79,7 @@ private:
     volatile uint16_t        _bpmX10 = 0;
     volatile int64_t         _lastClockUs = 0;
     volatile bool            _clockValid = false;
+    uint16_t                 _lastPanicNotes = 0;
 
     uint8_t                  _q[QSIZE][4];
     volatile uint16_t        _head = 0;

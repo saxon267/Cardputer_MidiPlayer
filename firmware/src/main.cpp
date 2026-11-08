@@ -558,6 +558,16 @@ void loop()
                  (unsigned)usbMidi.inputEndpoint(), usbMidi.clockValid() ? 1 : 0);
         usbLog(b);
     }
+
+    static bool lastPaused = false;
+    if (audio.paused() != lastPaused) {
+        lastPaused = audio.paused();
+        char b[80];
+        snprintf(b, sizeof(b), "pause=%d panicNotes=%u active=%u",
+                 lastPaused ? 1 : 0, (unsigned)usbMidi.lastPanicNotes(),
+                 (unsigned)usbMidi.activeNotes());
+        usbLog(b);
+    }
 #endif
     handleSerial();
     handleKeys();

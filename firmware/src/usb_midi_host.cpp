@@ -114,6 +114,18 @@ bool UsbMidiHost::clockValid() const
     return _clockValid && (esp_timer_get_time() - _lastClockUs <= 500000);
 }
 
+uint16_t UsbMidiHost::activeNotes() const
+{
+    uint16_t n = 0;
+    for (int ch = 0; ch < 16; ++ch) {
+        for (int w = 0; w < 4; ++w) {
+            uint32_t v = _on[ch][w];
+            while (v) { ++n; v &= v - 1; }
+        }
+    }
+    return n;
+}
+
 void UsbMidiHost::poll()
 {
     if (!_client) return;
@@ -327,9 +339,11 @@ void UsbMidiHost::allNotesOff(uint8_t ch)
 
 void UsbMidiHost::panic()
 {
+    _lastPanicNotes = activeNotes();
     for (uint8_t ch = 0; ch < 16; ++ch) {
         allNotesOff(ch);
         controlChange(ch, 64, 0);
+        controlChange(ch, 121, 0);
         controlChange(ch, 120, 0);
     }
 }
