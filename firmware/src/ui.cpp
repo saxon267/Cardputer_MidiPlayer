@@ -190,7 +190,9 @@ void UI::topbar(const char* section)
     text(52, 4, section, C_FAINT, false, 1);
 
 #if USB_MIDI_HOST
-    uint16_t uc = !app.usbHostOk ? C_RED : (app.usbConnected ? C_AQUA : C_FAINT);
+    uint16_t uc = !app.usbHostOk ? C_RED
+                : (app.usbConnected ? C_AQUA
+                : (app.usbDeviceSeen ? C_AMB : C_FAINT));
     text(156, 4, "USB", uc, true, 1);
 #endif
 

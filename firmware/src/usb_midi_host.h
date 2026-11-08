@@ -12,6 +12,7 @@ public:
     void poll();
     bool connected() const { return _connected; }
     bool midiFound() const { return _midiFound; }
+    bool deviceSeen() const { return _seen; }
     uint16_t vid() const { return _vid; }
     uint16_t pid() const { return _pid; }
     uint8_t endpoint() const { return _ep; }
@@ -49,6 +50,7 @@ private:
     volatile bool            _inFlight = false;
     volatile bool            _connected = false;
     bool                     _midiFound = false;
+    bool                     _seen = false;
     uint8_t                  _iface = 0;
     uint8_t                  _alt = 0;
     uint8_t                  _ep = 0;

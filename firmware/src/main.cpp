@@ -189,7 +189,10 @@ static void usbConnectCallback(bool connected, void*)
     app.usbConnected = connected;
     audio.setMuted(connected);
 #if USB_MIDI_HOST
-    if (connected) audio.resyncMidi();
+    if (connected) {
+        usbMidi.panic();
+        audio.resyncMidi();
+    }
 #endif
 }
 #endif
@@ -488,6 +491,7 @@ void loop()
     M5Cardputer.update();
 #if USB_MIDI_HOST
     usbMidi.poll();
+    app.usbDeviceSeen = usbMidi.deviceSeen();
     static bool lastUsb = false;
     if (app.usbConnected != lastUsb) {
         lastUsb = app.usbConnected;

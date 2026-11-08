@@ -35,7 +35,10 @@ void UsbMidiHost::clientCb(const usb_host_client_event_msg_t* msg, void* arg)
     if (msg->event == USB_HOST_CLIENT_EVENT_NEW_DEV) {
         if (!self->_dev) self->openDevice(msg->new_dev.address);
     } else if (msg->event == USB_HOST_CLIENT_EVENT_DEV_GONE) {
-        if (self->_dev && msg->dev_gone.dev_hdl == self->_dev) self->closeDevice();
+        if (self->_dev && msg->dev_gone.dev_hdl == self->_dev) {
+            self->_seen = false;
+            self->closeDevice();
+        }
     }
 }
 
@@ -56,6 +59,8 @@ void UsbMidiHost::poll()
 void UsbMidiHost::openDevice(uint8_t address)
 {
     if (usb_host_device_open(_client, address, &_dev) != ESP_OK) return;
+    _seen = true;
+    _midiFound = false;
     _head = _tail = 0;
 
     const usb_device_desc_t* dd = nullptr;
