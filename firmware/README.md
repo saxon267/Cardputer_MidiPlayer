@@ -1,8 +1,9 @@
-# Cardputer MIDI Player — 固件 v0.2.1
+# Cardputer MIDI Player — 固件 v0.4.0
 
-Cardputer-Adv 上的 SD 卡 MIDI 播放器。v0.2.1 是 **可运行的合成钢琴版**：流式 UI、SMF Format 0/1、24 声部钢琴、播放/暂停/seek/循环、0.1–3.0 倍速、动态钢琴卷帘。
+Cardputer-Adv 上的 SD 卡 MIDI 播放器。v0.4.0 是 **可运行的合成钢琴版**：流式 UI、SMF Format 0/1、24 声部钢琴、播放/暂停/seek/循环、0.1–3.0 倍速、动态钢琴卷帘；另有一个实验性的 USB-C Host build，可直连 M-VAVE FM-1。
 
-> 状态：**v0.2.1 已在实体 Cardputer-Adv 上跑通**（COM3，`sd=1` / `codec=1`，24 声部 / 2 泛音，1x CPU 19–21%、3x CPU 约 40%，`ur=0`）；钢琴卷帘为离屏渲染 + 真机运行验证。
+> 状态：普通 `cardputer_midi` build 已在实体 Cardputer-Adv 上验证启动/播放/CPU/无欠载；USB-C Host build 已能向 FM-1 发送 MIDI，但暂停挂音与 FM-1 BPM 同步仍依赖 Sloop 的 HOLD/CLOCK 设置并等待完整验证。  
+> 速查表：[`../CHEATSHEET.md`](../CHEATSHEET.md) · 发布说明：[`../RELEASE_NOTES.md`](../RELEASE_NOTES.md)
 
 ---
 
