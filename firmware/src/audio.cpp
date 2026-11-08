@@ -76,7 +76,7 @@ bool AudioEngine::begin()
     gPiano->init();
 
     _codecOk = M5Cardputer.In_I2C.scanID(0x18, 400000);
-    if (_codecOk) es8311Init(100);
+    if (_codecOk) es8311Init(78);
 
     i2s_driver_uninstall(I2S_NUM_0);
     if (!installI2s()) return false;
@@ -111,6 +111,7 @@ void AudioEngine::resetPlayback()
     _posUs  = 0;
     _frames = 0;
     _ended  = false;
+    _fade   = 0.0f;
     _sustainOn = false;
     _voices = 0;
     _active[0] = _active[1] = _active[2] = _active[3] = 0;
@@ -124,6 +125,7 @@ void AudioEngine::handleSeek()
     _posUs = target;
     _frames = (uint64_t)target * AUDIO_RATE / 1000000ull;
     _ended = false;
+    _fade  = 0.0f;
     _idx   = 0;
     if (gPiano) gPiano->reset();
 
@@ -153,33 +155,47 @@ void AudioEngine::taskLoop()
         uint32_t t0 = micros();
         bool active = _playing && !_paused;
 
-        if (active && gPiano) {
+        float targetFade = active ? 1.0f : 0.0f;
+        _fade += (targetFade - _fade) * 0.50f;
+        if (_fade < 0.001f) _fade = 0.0f;
+
+        if (_playing && gPiano) {
             uint32_t blockUs = (uint32_t)((uint64_t)AUDIO_BLOCK * 1000000ull / AUDIO_RATE);
             uint32_t endUs   = _posUs + blockUs;
 
-            while (_idx < _count && _events[_idx].t <= endUs) {
-                apply(_events[_idx]);
-                ++_idx;
+            if (active) {
+                while (_idx < _count && _events[_idx].t <= endUs) {
+                    apply(_events[_idx]);
+                    ++_idx;
+                }
             }
 
-            float vol = _volume / 100.0f;
-            gPiano->render(mono, AUDIO_BLOCK, vol * vol * 1.2f);
-            gPiano->fillMask(_active);
-            _voices = gPiano->activeCount();
+            if (active || _fade > 0.002f) {
+                float vol = _volume / 100.0f;
+                gPiano->render(mono, AUDIO_BLOCK, vol * vol * 1.2f * _fade);
+                if (active) {
+                    gPiano->fillMask(_active);
+                    _voices = gPiano->activeCount();
+                }
+            } else {
+                memset(mono, 0, sizeof(mono));
+            }
 
-            _frames += AUDIO_BLOCK;
-            _posUs = (uint32_t)(_frames * 1000000ull / AUDIO_RATE);
+            if (active) {
+                _frames += AUDIO_BLOCK;
+                _posUs = (uint32_t)(_frames * 1000000ull / AUDIO_RATE);
 
-            if (_idx >= _count && _posUs >= _durationUs + 400000u) {
-                if (_loop) {
-                    resetPlayback();
-                } else {
-                    _ended   = true;
-                    _playing = false;
-                    gPiano->allOff();
-                    _voices = 0;
-                    _active[0] = _active[1] = _active[2] = _active[3] = 0;
-                    _sustainOn = false;
+                if (_idx >= _count && _posUs >= _durationUs + 400000u) {
+                    if (_loop) {
+                        resetPlayback();
+                    } else {
+                        _ended   = true;
+                        _playing = false;
+                        gPiano->allOff();
+                        _voices = 0;
+                        _active[0] = _active[1] = _active[2] = _active[3] = 0;
+                        _sustainOn = false;
+                    }
                 }
             }
         } else {
@@ -200,10 +216,11 @@ void AudioEngine::taskLoop()
             vTaskDelay(1);
         }
 
-        cpuAcc += spent;
+        uint32_t blockUs = (uint32_t)((uint64_t)AUDIO_BLOCK * 1000000ull / AUDIO_RATE);
+        if (spent > blockUs) ++_underruns;
+
         cpuAcc += spent;
         if (++cpuN >= 16) {
-            uint32_t blockUs = (uint32_t)((uint64_t)AUDIO_BLOCK * 1000000ull / AUDIO_RATE);
             uint32_t pct = cpuAcc * 100u / (blockUs * (uint32_t)cpuN);
             _cpu = (uint8_t)(pct > 100 ? 100 : pct);
             cpuAcc = 0;

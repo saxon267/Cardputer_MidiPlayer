@@ -42,4 +42,9 @@ private:
     float    _sine[1025];
     bool     _sustain = false;
     uint32_t _age = 0;
+    float    _lim   = 1.0f;
+    float    _dcX   = 0.0f;
+    float    _dcY   = 0.0f;
+    float    _hpX   = 0.0f;
+    float    _hpY   = 0.0f;
 };

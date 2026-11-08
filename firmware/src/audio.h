@@ -57,6 +57,7 @@ private:
     volatile uint8_t          _volume   = 78;
     volatile uint8_t          _cpu      = 0;
     volatile uint16_t         _underruns = 0;
+    float                     _fade     = 0.0f;
     volatile bool             _sustainOn = false;
     volatile uint8_t          _voices    = 0;
     volatile uint32_t         _active[4] = {0, 0, 0, 0};

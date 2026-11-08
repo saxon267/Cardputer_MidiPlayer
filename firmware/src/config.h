@@ -18,7 +18,7 @@
 
 // ---------------------------------------------------------------- audio
 static constexpr uint32_t AUDIO_RATE  = 44100;
-static constexpr int      AUDIO_BLOCK = 128;   // 2.9 ms
+static constexpr int      AUDIO_BLOCK = 256;   // 5.8 ms; 6 DMA buffers = 35 ms
 static constexpr int      MAX_VOICES  = 24;
 static constexpr int      MAX_PARTIALS = 3;
 

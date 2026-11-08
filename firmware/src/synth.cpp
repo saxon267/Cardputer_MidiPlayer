@@ -14,6 +14,11 @@ void Piano::reset()
 {
     memset(_v, 0, sizeof(_v));
     _sustain = false;
+    _lim     = 1.0f;
+    _dcX     = 0.0f;
+    _dcY     = 0.0f;
+    _hpX     = 0.0f;
+    _hpY     = 0.0f;
 }
 
 void Piano::noteOn(uint8_t note, uint8_t vel, uint8_t ch)
@@ -58,8 +63,8 @@ void Piano::noteOn(uint8_t note, uint8_t vel, uint8_t ch)
 
     v.attack = 1.0f / (0.004f * (float)AUDIO_RATE);
     v.rel    = expf(-1.0f / (0.16f * (float)AUDIO_RATE));
-    v.gain   = 0.28f * powf(vv, 1.3f);
-    v.noiseEnv = 0.8f;
+    v.gain   = 0.20f * powf(vv, 1.3f);
+    v.noiseEnv = 0.35f;
     v.lfsr   = 0x9E3779B9u ^ ((uint32_t)note * 2654435761u);
 }
 
@@ -131,6 +136,7 @@ void Piano::render(int16_t* out, int frames, float master)
                 float a  = _sine[ip] + (_sine[ip + 1] - _sine[ip]) * fr;
                 s += v.amp[k] * a;
                 v.amp[k] *= v.decay[k];
+                if (v.amp[k] < 1e-6f) v.amp[k] = 0.0f;
             }
 
             if (v.noiseEnv > 0.002f) {
@@ -144,13 +150,35 @@ void Piano::render(int16_t* out, int frames, float master)
         }
     }
 
-    static float dcX = 0, dcY = 0;
     for (int i = 0; i < frames; ++i) {
         float x = acc[i] * master;
-        float y = tanhf(x * 1.4f) * 0.92f;
-        float z = y - dcX + 0.995f * dcY;
-        dcX = y;
-        dcY = z;
+
+        // Look-ahead-free limiter: fast attack, slow release. Keeps chords
+        // below full scale instead of letting tanh hard-saturate them.
+        float ax = fabsf(x);
+        float target = ax > 0.85f ? 0.85f / ax : 1.0f;
+        if (target < _lim) _lim += (target - _lim) * 0.35f;
+        else               _lim += (1.0f - _lim) * 0.001f;
+        x *= _lim;
+
+        // Padé approximation of tanh: cheaper than libm tanh and plenty
+        // accurate for the -3..3 range we feed it.
+        if (x > 3.0f) x = 3.0f;
+        if (x < -3.0f) x = -3.0f;
+        float x2 = x * x;
+        float y = x * (27.0f + x2) / (27.0f + 9.0f * x2) * 0.95f;
+
+        float z = y - _dcX + 0.995f * _dcY;
+        _dcX = y;
+        _dcY = z;
+
+        // 90 Hz high-pass: the 1 W speaker cannot reproduce the bottom end
+        // and a boosted sub-bass only makes it clip.
+        float h = z - _hpX + 0.987f * _hpY;
+        _hpX = z;
+        _hpY = h;
+        z = h;
+
         int32_t s = (int32_t)(z * 32767.0f);
         if (s > 32767) s = 32767;
         if (s < -32768) s = -32768;
