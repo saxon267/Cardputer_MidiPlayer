@@ -191,6 +191,8 @@ void AudioEngine::taskLoop()
             out[i * 2 + 1] = mono[i];
         }
 
+        uint32_t spent = micros() - t0;
+
         size_t written = 0;
         esp_err_t err = i2s_write(I2S_NUM_0, out, sizeof(out), &written, portMAX_DELAY);
         if (err != ESP_OK) {
@@ -198,7 +200,7 @@ void AudioEngine::taskLoop()
             vTaskDelay(1);
         }
 
-        uint32_t spent = micros() - t0;
+        cpuAcc += spent;
         cpuAcc += spent;
         if (++cpuN >= 16) {
             uint32_t blockUs = (uint32_t)((uint64_t)AUDIO_BLOCK * 1000000ull / AUDIO_RATE);

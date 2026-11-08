@@ -1,4 +1,5 @@
 #pragma once
+#include <M5Cardputer.h>
 #include <M5GFX.h>
 #include "app.h"
 
@@ -10,7 +11,7 @@ public:
     void render();
 
 private:
-    M5Canvas _c;
+    M5Canvas _c{&M5Cardputer.Display};
 
     void text(int x, int y, const char* s, uint16_t col, bool bold = false, int scale = 1);
     void textf(int x, int y, uint16_t col, bool bold, int scale, const char* fmt, ...);
