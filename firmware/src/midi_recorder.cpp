@@ -156,7 +156,7 @@ bool MidiRecorder::save(char* outPath, size_t outLen)
     uint32_t tempoUs = 600000000u / _bpmX10;
     if (tempoUs > 0xFFFFFFu) tempoUs = 0xFFFFFFu;
 
-    uint32_t trackLen = 6 + 4;  // tempo meta + end of track
+    uint32_t trackLen = 7 + 4;  // delta 0 + tempo meta + end of track
     uint32_t prevTick = 0;
     for (int i = 0; i < _n; ++i) {
         uint64_t tick = (uint64_t)_ev[i].t * _bpmX10 * DIVISION / 600000000ull;
@@ -176,7 +176,7 @@ bool MidiRecorder::save(char* outPath, size_t outLen)
     };
     f.write(hdr, sizeof(hdr));
 
-    uint8_t tempo[6] = {0xFF, 0x51, 0x03,
+    uint8_t tempo[7] = {0x00, 0xFF, 0x51, 0x03,
                         (uint8_t)(tempoUs >> 16), (uint8_t)(tempoUs >> 8), (uint8_t)tempoUs};
     f.write(tempo, sizeof(tempo));
 

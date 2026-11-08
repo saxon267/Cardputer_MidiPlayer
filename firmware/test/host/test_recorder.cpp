@@ -61,7 +61,7 @@ int main()
         std::printf("RESULT FAIL length\n");
         return 1;
     }
-    if (memcmp(buf + 22, "\xFF\x51\x03", 3) != 0) {
+    if (memcmp(buf + 23, "\xFF\x51\x03", 3) != 0) {
         std::printf("RESULT FAIL tempo\n");
         return 1;
     }
@@ -70,9 +70,9 @@ int main()
         return 1;
     }
 
-    // Walk events after the 6-byte tempo meta. Assert only selected channels
-    // (1, 2, 10) are present and that CH3 was filtered out.
-    const uint8_t* p = buf + 22 + 6;
+    // Walk events after the delta 0 + 6-byte tempo meta. Assert only selected
+    // channels (1, 2, 10) are present and that CH3 was filtered out.
+    const uint8_t* p = buf + 22 + 7;
     const uint8_t* end = buf + 22 + tlen - 4;
     int ev = 0, ch1 = 0, ch2 = 0, ch10 = 0, ch3 = 0, cc64 = 0;
     while (p < end) {
