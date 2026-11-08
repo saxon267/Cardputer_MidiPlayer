@@ -465,10 +465,12 @@ static void handleKeys()
         if (eR || eEnter || eSpace) {
             if (rec.recording()) {
                 stopTake();
-            } else if (app.usbConnected) {
-                rec.startRecording(app.bpmX10);
-            } else {
+            } else if (!app.usbConnected) {
                 setToast("CONNECT FM1");
+            } else if (!usbMidi.inputEndpoint()) {
+                setToast("NO MIDI IN");
+            } else {
+                rec.startRecording(app.bpmX10);
             }
         }
         if (!rec.recording()) {
