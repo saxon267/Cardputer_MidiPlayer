@@ -77,7 +77,16 @@ pwsh tools/make_bin.ps1 -Env cardputer_midi_usb
 - Sloop 的 `CLOCK` 不是 OUT，或 `SYNC` 不是 INT 时，Cardputer 不会强行改速。
 - 原来的 `x1.0` 倍速键只对普通 build 有意义；Host build 由 FM-1 BPM 接管。
 
-**暂停/停止：**
+### 暂停挂音：先检查 Sloop 的 KBD HOLD
+
+Sloop 2.7 的 **`ARP 2 → HOLD`** 在 `ARP MODE = OFF` 时会把收到的 MIDI 音符也锁住：
+
+> HOLD ON 时，没有按键时的下一个音符会替换当前和弦；**MIDI note-off 也会等待**。HOLD OFF 才结束这些音。
+
+这会导致 Cardputer 暂停后，FM-1 上最后一个音一直响；Cardputer 发 Note Off / CC123 也不能绕过 Sloop 的 HOLD。  
+**测试暂停前，把 Sloop 设为 `ARP 2 → HOLD OFF`**（或打开 ARP、切换 project 后 HOLD 仍保持 ON，必须显式 HOLD OFF）。
+
+### 暂停/停止：
 
 - 暂停、seek、stop、loop 边界都会发送**显式的 Note Off（按当前活动音符表）**，再补 CC64/CC121/CC123/CC120；不依赖 Sloop 是否实现 All Notes Off。
 - panic 请求现在由**音频任务在下一个块边界执行**，避免主线程暂停与音频线程“刚排队的 Note On”发生竞态；否则会出现“先关音、后收到 Note On”的挂音。
