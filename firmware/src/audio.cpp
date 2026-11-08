@@ -109,7 +109,6 @@ void AudioEngine::resetPlayback()
 {
     _idx    = 0;
     _posUs  = 0;
-    _frames = 0;
     _ended  = false;
     _fade   = 0.0f;
     _sustainOn = false;
@@ -123,7 +122,6 @@ void AudioEngine::handleSeek()
     uint32_t target = _seekTo;
     if (target > _durationUs) target = _durationUs;
     _posUs = target;
-    _frames = (uint64_t)target * AUDIO_RATE / 1000000ull;
     _ended = false;
     _fade  = 0.0f;
     _idx   = 0;
@@ -161,7 +159,9 @@ void AudioEngine::taskLoop()
 
         if (_playing && gPiano) {
             uint32_t blockUs = (uint32_t)((uint64_t)AUDIO_BLOCK * 1000000ull / AUDIO_RATE);
-            uint32_t endUs   = _posUs + blockUs;
+            uint32_t spd     = _speedX1000;
+            uint32_t advUs   = (uint32_t)((uint64_t)blockUs * spd / 1000ull);
+            uint32_t endUs   = _posUs + advUs;
 
             if (active) {
                 while (_idx < _count && _events[_idx].t <= endUs) {
@@ -182,8 +182,7 @@ void AudioEngine::taskLoop()
             }
 
             if (active) {
-                _frames += AUDIO_BLOCK;
-                _posUs = (uint32_t)(_frames * 1000000ull / AUDIO_RATE);
+                _posUs = endUs;
 
                 if (_idx >= _count && _posUs >= _durationUs + 400000u) {
                     if (_loop) {
@@ -290,4 +289,11 @@ void AudioEngine::setLoop(bool on) { _loop = on; }
 void AudioEngine::setVolume(uint8_t v)
 {
     _volume = v > 100 ? 100 : v;
+}
+
+void AudioEngine::setSpeed(float s)
+{
+    if (s < 0.1f) s = 0.1f;
+    if (s > 3.0f) s = 3.0f;
+    _speedX1000 = (uint16_t)(s * 1000.0f + 0.5f);
 }

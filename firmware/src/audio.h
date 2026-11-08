@@ -17,6 +17,8 @@ public:
     void seek(int32_t deltaUs);
     void setLoop(bool on);
     void setVolume(uint8_t v);
+    void setSpeed(float s);
+    float speed() const { return _speedX1000 / 1000.0f; }
 
     bool     playing() const { return _playing; }
     bool     paused() const { return _paused; }
@@ -46,8 +48,8 @@ private:
     volatile size_t           _count    = 0;
     volatile size_t           _idx      = 0;
     volatile uint32_t         _posUs    = 0;
-    volatile uint64_t         _frames   = 0;
     volatile uint32_t         _durationUs = 0;
+    volatile uint16_t         _speedX1000 = 1000;
     volatile uint32_t         _seekTo   = 0;
     volatile bool             _seekReq  = false;
     volatile bool             _playing  = false;

@@ -475,10 +475,14 @@ void UI::drawPlayer()
     frame(65, yb, 18, 14, C_EDGE);
     iconNext(70, yb + 3, C_TXT);
 
-    frame(87, yb, 42, 14, app.loop ? C_ACC : C_EDGE);
-    rect(93, yb + 5, 5, 5, app.loop ? C_ACC : C_BG);
-    if (!app.loop) frame(93, yb + 5, 5, 5, C_FAINT);
-    text(102, yb + 4, "LOOP", app.loop ? C_ACC : C_FAINT, false, 1);
+    frame(84, yb, 38, 14, app.loop ? C_ACC : C_EDGE);
+    rect(88, yb + 5, 5, 5, app.loop ? C_ACC : C_BG);
+    if (!app.loop) frame(88, yb + 5, 5, 5, C_FAINT);
+    text(96, yb + 4, "LOOP", app.loop ? C_ACC : C_FAINT, false, 1);
+
+    char spd[8];
+    snprintf(spd, sizeof(spd), "x%.1f", audio.speed());
+    text(126, yb + 4, spd, C_AQUA, true, 1);
 
     text(154, yb + 4, "VOL", C_FAINT, false, 1);
     iconVol(175, yb + 3, C_DIM);
@@ -490,6 +494,189 @@ void UI::drawPlayer()
     if (ended)      hints("SPC", "REPLAY", "BKSP", "LIST", "", "");
     else if (paused) hints("SPC", "RESUME", "ARROWS", "SEEK", "BKSP", "LIST");
     else             hints("SPC", "PLAY/PAUSE", "ARROWS", "SEEK", "BKSP", "LIST");
+}
+
+void UI::drawRoll()
+{
+    topbar("ROLL");
+
+    const int RX = 18;
+    const int RY = 14;
+    const int RW = SCR_W - RX;
+    const int RH = 96;
+    const int ROWS = 48;
+
+    if (!app.ev || !app.evCount) {
+        textC(SCR_W / 2, 55, "NO SONG", C_FAINT, true, 1);
+        hline(0, 110, SCR_W, C_LINE);
+        rect(0, 111, SCR_W, 24, C_BAR);
+        textC(SCR_W / 2, 124, "TAB PLAYER", C_DIM);
+        return;
+    }
+
+    uint32_t pos = audio.positionUs();
+    uint32_t dur = audio.durationUs();
+    int32_t  t0  = (int32_t)pos - 2000000;
+    if (t0 < 0) t0 = 0;
+    int32_t  t1  = t0 + 8000000;
+    if (dur && t1 > (int32_t)dur) {
+        t1 = (int32_t)dur;
+        t0 = t1 - 8000000;
+        if (t0 < 0) t0 = 0;
+    }
+    if (t1 <= t0) t1 = t0 + 1000;
+
+    auto mapX = [&](int32_t t) -> int {
+        int x = RX + (int)((int64_t)(t - t0) * RW / (t1 - t0));
+        if (x < RX) x = RX;
+        if (x > SCR_W - 1) x = SCR_W - 1;
+        return x;
+    };
+
+    // Pass 1: visible note range for vertical auto-scroll.
+    memset(_rollStart, 0xFF, sizeof(_rollStart));
+    int  minN = 127, maxN = 0;
+    bool any  = false;
+    for (size_t i = 0; i < app.evCount; ++i) {
+        const MidiEvent& e = app.ev[i];
+        if (e.t > (uint32_t)t1) break;
+        int ch = e.pad & 15;
+        if (e.type == EV_ON) {
+            _rollStart[ch][e.note] = (int32_t)e.t;
+        } else if (e.type == EV_OFF) {
+            int32_t s = _rollStart[ch][e.note];
+            if (s >= 0) {
+                if ((int32_t)e.t >= t0) {
+                    if (e.note < minN) minN = e.note;
+                    if (e.note > maxN) maxN = e.note;
+                    any = true;
+                }
+                _rollStart[ch][e.note] = -1;
+            }
+        }
+    }
+    for (int ch = 0; ch < 16; ++ch)
+        for (int n = 0; n < 128; ++n)
+            if (_rollStart[ch][n] >= 0) {
+                if (n < minN) minN = n;
+                if (n > maxN) maxN = n;
+                any = true;
+            }
+
+    int target = 48;
+    if (any) {
+        target = (minN + maxN) / 2 - ROWS / 2;
+        if (target < 0) target = 0;
+        if (target > 127 - ROWS) target = 127 - ROWS;
+    }
+    int d = target - _rollBase;
+    if (d > 4) d = 4;
+    if (d < -4) d = -4;
+    _rollBase += d;
+
+    // Background rows + keyboard.
+    rect(0, RY, RX, RH, C_PANEL);
+    rect(RX, RY, RW, RH, C_BG);
+    for (int row = 0; row < ROWS; ++row) {
+        int note = _rollBase + ROWS - 1 - row;
+        int y    = RY + row * 2;
+        int pc   = note % 12;
+        bool black = (pc == 1 || pc == 3 || pc == 6 || pc == 8 || pc == 10);
+
+        if (black) rect(RX, y, RW, 2, C_BAR);
+        if (pc == 0) hline(RX, y + 1, RW, C_LINE);
+
+        if (black) {
+            rect(0, y, 11, 2, C_BG);
+            rect(11, y, RX - 11, 2, C_LT2);
+        } else {
+            rect(0, y, RX, 2, C_LT2);
+            hline(0, y + 1, RX, C_EDGE);
+        }
+    }
+
+    // Beat / bar lines.
+    uint32_t beat = app.info.bpmX10 ? (600000000u / app.info.bpmX10) : 500000u;
+    if (beat < 100000u) beat = 100000u;
+    uint32_t barLen = beat * 4;
+    int64_t first = ((int64_t)t0 / beat) * beat;
+    if (first < t0) first += beat;
+    for (int64_t t = first; t < t1; t += beat) {
+        int x = mapX((int32_t)t);
+        vline(x, RY, RH, ((uint32_t)t % barLen) == 0 ? C_EDGE : C_LINE);
+    }
+
+    // Pass 2: notes.
+    memset(_rollStart, 0xFF, sizeof(_rollStart));
+    auto drawNote = [&](int32_t s, int32_t e, uint8_t note, uint8_t ch) {
+        if (e <= t0 || s >= t1) return;
+        int32_t a = s < t0 ? t0 : s;
+        int32_t b = e > t1 ? t1 : e;
+        if (b <= a) return;
+        int x0 = mapX(a);
+        int x1 = mapX(b);
+        if (x1 - x0 < 2) x1 = x0 + 2;
+        if (x1 > SCR_W) x1 = SCR_W;
+        if (x0 >= SCR_W) return;
+
+        int row = _rollBase + ROWS - 1 - note;
+        if (row < 0 || row >= ROWS) return;
+        int y = RY + row * 2;
+
+        bool active = (s <= (int32_t)pos && e > (int32_t)pos);
+        uint16_t col;
+        if (active)          col = C_ACC;
+        else if (e <= (int32_t)pos) col = C_FAINT;
+        else                 col = (ch & 1) ? C_BLUE : C_AQUA;
+
+        rect(x0, y, x1 - x0, 2, col);
+    };
+
+    for (size_t i = 0; i < app.evCount; ++i) {
+        const MidiEvent& e = app.ev[i];
+        if (e.t > (uint32_t)t1) break;
+        int ch = e.pad & 15;
+        if (e.type == EV_ON) {
+            _rollStart[ch][e.note] = (int32_t)e.t;
+        } else if (e.type == EV_OFF) {
+            int32_t s = _rollStart[ch][e.note];
+            if (s >= 0) {
+                drawNote(s, (int32_t)e.t, e.note, (uint8_t)ch);
+                _rollStart[ch][e.note] = -1;
+            }
+        }
+    }
+    for (int ch = 0; ch < 16; ++ch)
+        for (int n = 0; n < 128; ++n)
+            if (_rollStart[ch][n] >= 0)
+                drawNote(_rollStart[ch][n], t1, (uint8_t)n, (uint8_t)ch);
+
+    // Playhead.
+    int px = mapX((int32_t)pos);
+    vline(px, RY, RH, C_TXT);
+    _c.fillTriangle(px - 2, RY, px + 2, RY, px, RY + 4, C_ACC);
+
+    // Footer / transport status.
+    hline(0, 110, SCR_W, C_LINE);
+    rect(0, 111, SCR_W, 24, C_BAR);
+
+    char a[16], b[16], tm[36];
+    fmtTime(a, sizeof(a), pos / 1000000u);
+    fmtTime(b, sizeof(b), dur / 1000000u);
+    snprintf(tm, sizeof(tm), "%s / %s", a, b);
+    text(6, 113, tm, C_TXT, true, 1);
+
+    if (app.loop) textR(164, 113, "LOOP", C_AMB, true, 1);
+
+    char bpm[16];
+    snprintf(bpm, sizeof(bpm), "%u BPM", (unsigned)(app.info.bpmX10 / 10));
+    textR(204, 113, bpm, C_DIM, false, 1);
+
+    char spd[8];
+    snprintf(spd, sizeof(spd), "x%.1f", audio.speed());
+    textR(234, 113, spd, C_AQUA, true, 1);
+
+    textC(SCR_W / 2, 124, "[ ] SEEK   TAB PLAYER", C_DIM);
 }
 
 void UI::drawNoFiles()
@@ -577,6 +764,7 @@ void UI::render()
     switch (app.screen) {
         case Screen::LIBRARY:  drawLibrary(); break;
         case Screen::PLAYER:   drawPlayer();  break;
+        case Screen::ROLL:     drawRoll();    break;
         case Screen::NO_FILES: drawNoFiles(); break;
         case Screen::NO_SD:    drawNoSd();    break;
         default: break;

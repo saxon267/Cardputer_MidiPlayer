@@ -37,6 +37,17 @@ static void setLib()
     }
 }
 
+static MidiEvent rollEv[] = {
+    {70000000, EV_ON, 60, 100, 0}, {72600000, EV_OFF, 60, 0, 0},
+    {70200000, EV_ON, 64, 96, 0},  {72100000, EV_OFF, 64, 0, 0},
+    {70400000, EV_ON, 67, 104, 0}, {73100000, EV_OFF, 67, 0, 0},
+    {70600000, EV_ON, 72, 90, 0},  {72400000, EV_OFF, 72, 0, 0},
+    {71400000, EV_ON, 76, 110, 1}, {73400000, EV_OFF, 76, 0, 1},
+    {71600000, EV_ON, 79, 88, 1},  {72900000, EV_OFF, 79, 0, 1},
+    {71800000, EV_ON, 81, 100, 2}, {73900000, EV_OFF, 81, 0, 2},
+    {72200000, EV_ON, 84, 80, 2},  {74400000, EV_OFF, 84, 0, 2},
+};
+
 static void setPlaying()
 {
     app.screen = Screen::PLAYER;
@@ -53,6 +64,8 @@ static void setPlaying()
     app.info.bpmX10 = 660;
     strcpy(app.info.key, "DB MAJ");
     app.info.durationUs = 227000000;
+    app.ev = rollEv;
+    app.evCount = sizeof(rollEv) / sizeof(rollEv[0]);
 
     audio._durationUs = 227000000;
     audio._posUs = 72000000;
@@ -60,6 +73,7 @@ static void setPlaying()
     audio._ended = false;
     audio._sustainOn = true;
     audio._voices = 3;
+    audio._speedX1000 = 1000;
     audio._active[0] = 0;
     audio._active[1] = (1u << (61 - 32));
     audio._active[2] = (1u << (65 - 64)) | (1u << (68 - 64));
@@ -91,6 +105,13 @@ int main()
     // playing
     setPlaying();
     save("ui_player.bmp");
+
+    // piano roll
+    setPlaying();
+    app.screen = Screen::ROLL;
+    audio._posUs = 72000000;
+    audio._voices = 6;
+    save("ui_roll.bmp");
 
     // paused
     setPlaying();

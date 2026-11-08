@@ -46,8 +46,12 @@ private:
 
     void drawLibrary();
     void drawPlayer();
+    void drawRoll();
     void drawNoFiles();
     void drawNoSd();
+
+    int32_t _rollStart[16][128];
+    int     _rollBase = 48;
 };
 
 extern UI ui;

@@ -77,6 +77,8 @@ static void loadIndex(int idx)
     delay(30);
     song.clear();
     audio.clearSong();
+    app.ev = nullptr;
+    app.evCount = 0;
 
     char err[40] = {0};
     MidiInfo info;
@@ -95,6 +97,8 @@ static void loadIndex(int idx)
                       (unsigned)song.events()[song.count() - 1].t);
     }
 
+    app.ev = song.events();
+    app.evCount = song.count();
     app.info = info;
     makeTitle(e.name, app.title, sizeof(app.title));
     app.playIndex = idx;
@@ -145,17 +149,19 @@ static void backToLibrary()
     app.screen = Screen::LIBRARY;
     app.sel = app.playIndex >= 0 ? app.playIndex : app.sel;
     app.playIndex = -1;
+    app.ev = nullptr;
+    app.evCount = 0;
     adjustScroll();
 }
 
 static void printStatus()
 {
-    Serial.printf("[midi] dbg screen=%d sel=%d play=%d pause=%d end=%d loop=%d pos=%u/%u cpu=%u ur=%u voices=%u vol=%u heap=%u\n",
+    Serial.printf("[midi] dbg screen=%d sel=%d play=%d pause=%d end=%d loop=%d pos=%u/%u cpu=%u ur=%u voices=%u vol=%u spd=%.1f heap=%u\n",
                   (int)app.screen, app.sel, audio.playing() ? 1 : 0, audio.paused() ? 1 : 0,
                   audio.ended() ? 1 : 0, app.loop ? 1 : 0, (unsigned)audio.positionUs(),
                   (unsigned)audio.durationUs(), (unsigned)audio.cpuPct(),
                   (unsigned)audio.underruns(), (unsigned)audio.voices(),
-                  (unsigned)app.volume, (unsigned)ESP.getFreeHeap());
+                  (unsigned)app.volume, audio.speed(), (unsigned)ESP.getFreeHeap());
 }
 
 // Small USB-CDC debug console. Handy when the keyboard is not reachable.
@@ -165,6 +171,15 @@ static void printStatus()
 //   + / -      volume up/down
 //   l          loop
 //   i          status
+static void changeSpeed(float delta)
+{
+    audio.setSpeed(audio.speed() + delta);
+    prefs.putUShort("spd", (uint16_t)(audio.speed() * 1000.0f + 0.5f));
+    char msg[24];
+    snprintf(msg, sizeof(msg), "SPEED x%.1f", audio.speed());
+    setToast(msg);
+}
+
 static void handleSerial()
 {
     while (Serial.available()) {
@@ -176,7 +191,7 @@ static void handleSerial()
         if (c == 'p' || c == 'P' || c == ' ') {
             if (app.screen == Screen::LIBRARY) {
                 loadIndex(app.sel);
-            } else if (app.screen == Screen::PLAYER) {
+            } else if (app.screen == Screen::PLAYER || app.screen == Screen::ROLL) {
                 if (audio.ended()) audio.play();
                 else               audio.togglePause();
             }
@@ -201,10 +216,30 @@ static void handleSerial()
             audio.setLoop(app.loop);
             prefs.putBool("loop", app.loop);
             printStatus();
+        } else if (c == '[') {
+            audio.seek(-1000000);
+            printStatus();
+        } else if (c == ']') {
+            audio.seek(+1000000);
+            printStatus();
+        } else if (c == '<' || c == ',') {
+            changeSpeed(-0.1f);
+            printStatus();
+        } else if (c == '>' || c == '.') {
+            changeSpeed(+0.1f);
+            printStatus();
+        } else if (c >= '0' && c <= '3') {
+            float target = (c == '0') ? 0.1f : (float)(c - '0');
+            changeSpeed(target - audio.speed());
+            printStatus();
+        } else if (c == 't' || c == 'T') {
+            if (app.screen == Screen::PLAYER) app.screen = Screen::ROLL;
+            else if (app.screen == Screen::ROLL) app.screen = Screen::PLAYER;
+            printStatus();
         } else if (c == 'i' || c == 'I') {
             printStatus();
         } else if (c == 'h' || c == 'H' || c == '?') {
-            Serial.println("[midi] keys: p=play/pause n=next b=back +/-=vol l=loop i=info");
+            Serial.println("[midi] keys: p=play/pause n=next b=back +/-=vol l=loop [ ]=seek </>=speed t=roll i=info");
         }
     }
 }
@@ -217,6 +252,7 @@ static void handleKeys()
     static bool pUp = false, pDown = false, pLeft = false, pRight = false;
     static bool pComma = false, pDot = false, pL = false;
     static bool pMinus = false, pPlus = false;
+    static bool pLBr = false, pRBr = false, pTab = false;
 
     bool enter = ks.enter;
     bool space = ks.space;
@@ -230,6 +266,9 @@ static void handleKeys()
     bool lkey  = !ks.fn && M5Cardputer.Keyboard.isKeyPressed('l');
     bool minus = !ks.fn && M5Cardputer.Keyboard.isKeyPressed('-');
     bool plus  = !ks.fn && M5Cardputer.Keyboard.isKeyPressed('=');
+    bool lbr   = M5Cardputer.Keyboard.isKeyPressed('[');
+    bool rbr   = M5Cardputer.Keyboard.isKeyPressed(']');
+    bool tab   = ks.tab;
 
     bool eEnter = enter && !pEnter;
     bool eSpace = space && !pSpace;
@@ -243,11 +282,27 @@ static void handleKeys()
     bool eL     = lkey && !pL;
     bool eMinus = minus && !pMinus;
     bool ePlus  = plus && !pPlus;
+    bool eLBr  = lbr && !pLBr;
+    bool eRBr  = rbr && !pRBr;
+    bool eTab  = tab && !pTab;
 
     pEnter = enter; pSpace = space; pDel = del;
     pUp = up; pDown = down; pLeft = left; pRight = right;
     pComma = comma; pDot = dot; pL = lkey;
     pMinus = minus; pPlus = plus;
+    pLBr = lbr; pRBr = rbr; pTab = tab;
+
+    // Speed: Fn + [ / ].  Plain [ / ] scrubs the song.
+    if (ks.fn && eLBr) changeSpeed(-0.1f);
+    else if (ks.fn && eRBr) changeSpeed(+0.1f);
+    else if (app.screen == Screen::PLAYER || app.screen == Screen::ROLL) {
+        if (eLBr) audio.seek(-1000000);
+        if (eRBr) audio.seek(+1000000);
+    }
+
+    if (eTab && (app.screen == Screen::PLAYER || app.screen == Screen::ROLL)) {
+        app.screen = (app.screen == Screen::PLAYER) ? Screen::ROLL : Screen::PLAYER;
+    }
 
     if (eMinus && app.volume >= 10) {
         app.volume -= 10;
@@ -298,6 +353,31 @@ static void handleKeys()
             audio.setLoop(app.loop);
             prefs.putBool("loop", app.loop);
         }
+    } else if (app.screen == Screen::ROLL) {
+        if (eEnter || eSpace) {
+            if (audio.ended()) audio.play();
+            else               audio.togglePause();
+        }
+        if (eDel) app.screen = Screen::PLAYER;
+        if (eLeft)  audio.seek(-5000000);
+        if (eRight) audio.seek(+5000000);
+        if (eUp && app.volume <= 95) {
+            app.volume += 5;
+            audio.setVolume(app.volume);
+            prefs.putUChar("vol", app.volume);
+        }
+        if (eDown && app.volume >= 5) {
+            app.volume -= 5;
+            audio.setVolume(app.volume);
+            prefs.putUChar("vol", app.volume);
+        }
+        if (eComma) nextTrack(-1);
+        if (eDot)   nextTrack(+1);
+        if (eL) {
+            app.loop = !app.loop;
+            audio.setLoop(app.loop);
+            prefs.putBool("loop", app.loop);
+        }
     } else if (app.screen == Screen::NO_SD) {
         if (eEnter || eDel) retrySd();
     } else if (app.screen == Screen::NO_FILES) {
@@ -323,6 +403,7 @@ void setup()
     app.volume = prefs.getUChar("vol", 78);
     if (app.volume > 100) app.volume = 78;
     app.loop = prefs.getBool("loop", false);
+    audio.setSpeed(prefs.getUShort("spd", 1000) / 1000.0f);
 
     ui.begin();
     Serial.printf("[midi] heap after ui=%u\n", (unsigned)ESP.getFreeHeap());

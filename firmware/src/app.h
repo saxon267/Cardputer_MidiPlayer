@@ -3,7 +3,7 @@
 #include "library.h"
 #include "midi.h"
 
-enum class Screen : uint8_t { BOOT, LIBRARY, PLAYER, NO_SD, NO_FILES };
+enum class Screen : uint8_t { BOOT, LIBRARY, PLAYER, ROLL, NO_SD, NO_FILES };
 
 struct App {
     Screen   screen     = Screen::BOOT;
@@ -20,6 +20,8 @@ struct App {
     uint32_t toastUntil = 0;
     char     err[40]    = {0};
     MidiInfo info;
+    const MidiEvent* ev = nullptr;
+    size_t   evCount    = 0;
 };
 
 extern App app;

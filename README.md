@@ -6,7 +6,7 @@
 
 把 SD 卡里的 `.mid` 播成钢琴声：一个 240×135、Gruvbox Dark 的随身 MIDI 播放器。
 
-> **v0.1.3 固件已上机验证启动/播放/CPU/无欠载**：修复 note-off 包络 bug，24 声部 / 2 泛音 **CPU 19–21%，`ur=0`**；音质仍待主观确认。串口日志与修复记录见 [`firmware/README.md`](firmware/README.md)。
+> **v0.2.0 固件已上机验证启动/播放/CPU/无欠载**：24 声部 / 2 泛音 **CPU 19–21%，`ur=0`**；新增 **0.1–3.0 倍速** 和 **动态钢琴卷帘**。串口日志与修复记录见 [`firmware/README.md`](firmware/README.md)。
 > 设计评估仍有效；Phase 2（4 MB Flash 采样钢琴）尚未实现。
 
 | | |
@@ -14,16 +14,18 @@
 | 目标机 | M5Stack Cardputer-Adv（ESP32-S3FN8，512 KB SRAM，8 MB Flash，**无 PSRAM**） |
 | 音频 | ES8311 单声道 + NS4150B 1 W；3.5 mm 单声道耳机 |
 | 屏幕 | 240×135 IPS，1.14" |
-| v0.1.3 固件 | SMF Format 0/1 + 24 声部 / 2 泛音合成钢琴 + 44.1 kHz 直连 I2S |
+| v0.2.0 固件 | SMF Format 0/1 + 24 声部 / 2 泛音合成钢琴 + 44.1 kHz 直连 I2S |
 | Phase 2 | 4 MB Flash 多采样钢琴（18 区 / 22.05 kHz / 16-bit） |
 | 工作量 | 合成版 MVP 60–90 h；采样版 110–160 h |
 | 音质 | 便携琴级别，不是钢琴；耳机明显更好 |
 
-## 固件 v0.1.3
+## 固件 v0.2.0
 
-**功能**：SD `/midi`（回退 `/`）、文件夹、`.mid` / `.midi`、Format 0/1、tempo、CC64 延音、24 声部钢琴、播放/暂停、`Fn+,` / `Fn+/` seek ±5 s、上一首/下一首、循环、音量 NVS、7 个 Gruvbox 界面。
+**功能**：SD `/midi`（回退 `/`）、文件夹、`.mid` / `.midi`、Format 0/1、tempo、CC64 延音、24 声部钢琴、播放/暂停、`Fn+,` / `Fn+/` seek ±5 s、`[` / `]` seek ±1 s、0.1–3.0 倍速、Tab 切换动态钢琴卷帘、上一首/下一首、循环、音量/速度 NVS、8 个 Gruvbox 界面。
 
 **限制**：最多 14000 个事件（约 7000 个音符）；合成音色；无按键连发；无中文文件名。
+
+![Piano roll](design/out/08-piano-roll.png)
 
 ```bash
 cd firmware
