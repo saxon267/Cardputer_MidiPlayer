@@ -20,3 +20,7 @@ desktop.ini
 
 # Zig/MinGW host debug symbols
 *.pdb
+
+# host UI test output
+firmware/ui_*.bmp
+firmware/ui_*.png

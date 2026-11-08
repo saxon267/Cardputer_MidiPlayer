@@ -164,6 +164,10 @@ g++ -std=c++17 -I test/host -I src test/host/test_midi.cpp src/midi.cpp -o test_
 # 合成器冒烟测试 + 3 秒试听 WAV：
 g++ -std=c++17 -I src test/host/test_synth.cpp src/synth.cpp -o test_synth
 ./test_synth assets/demo.wav
+
+# UI 离屏渲染（stub M5GFX，输出 ui_*.bmp）：
+g++ -std=c++17 -I test/host/ui -I test/host -I src test/host/test_ui.cpp src/ui.cpp -o test_ui
+./test_ui
 ```
 
 `assets/test.mid` 是 120 BPM、C 大调音阶 + C 大三和弦，4800 ticks / 5.0 s，24 个事件。
