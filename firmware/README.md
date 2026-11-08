@@ -36,6 +36,52 @@ pwsh tools/make_bin.ps1
 # dist/CardputerMidiPlayer-8MB.bin
 ```
 
+### USB-C Host → FM-1（实验，需单独 build）
+
+目标：Cardputer-Adv 用 **一根 USB-C 数据线**直接驱动 M-VAVE FM-1 的 Sloop，不接 Grove/TRS；FM-1 自带电池，Cardputer 仍按 USB Host 规范提供 VBUS。连接成功后 **Cardputer 本地喇叭静音**，断开后恢复。
+
+```bash
+# 专用 host build（没有 USB-CDC 串口）
+pio run -e cardputer_midi_usb
+
+# 生成合并镜像（推荐，从 0x0 烧写）
+pwsh tools/make_bin.ps1 -Env cardputer_midi_usb
+# dist/CardputerMidiPlayer-USBHost-8MB.bin
+```
+
+**刷写顺序非常重要：**
+
+1. 断开 FM-1；只把 Cardputer 接到 PC；
+2. 进下载模式后运行：
+   ```bash
+   pwsh tools/flash_usbhost.ps1 -Port COM3
+   ```
+   该脚本使用 `--after no_reset`，刷完停在 ROM loader，**不会在 PC 还连着 VBUS 时启动 Host**；
+3. **先拔掉 PC 的 USB-C**，再给 Cardputer 断电重开；
+4. 用 USB-C 数据线把 FM-1 接到 Cardputer；FM-1 用自身电池。
+
+> 不要在 USB-Host build 运行时同时把 Cardputer 接到 PC；两边都可能供 5V。要恢复普通固件：断开 FM-1，按住 G0 重新进下载模式，运行 `pwsh tools/flash_normal.ps1 -Port COM3`。
+
+**Sloop 侧设置：**
+
+- `GLO → MIDI`：CH1=1，CH2=2，CH3=3，CH4=10（鼓）；
+- `GLO → MIDI 2`：IN=NOTES，OTHER=SEL 或 OFF，OUT=KEYS，BEND 按需；
+- `SYNC=INT`（本固件目前不发 MIDI clock）；`DR MAP=GM`；
+- 先选好 Sloop 的音色/鼓组；本固件**不发送 Program Change**，避免把 Sloop 音色切乱。
+
+**状态指示：**
+
+- 顶栏 `USB`：红 = Host 初始化失败；灰 = Host 正常但未识别到 FM-1 的 MIDI OUT；绿 = 已连接，本地喇叭已静音。
+- 连接/断开时屏幕会弹 `FM1 CONNECTED` / `FM1 DISCONNECTED`。
+
+**限制：**
+
+- `cardputer_midi_usb` build **没有 USB-CDC 串口**；调试只能看屏幕。要串口日志请刷普通 `cardputer_midi`。
+- 当前从 5.8 ms 音频块里发 MIDI，音符抖动约 0–6 ms；自动演奏可用，紧密鼓机/时钟同步还需 1 ms 调度器。
+- FM-1 是 USB MIDI + USB Audio 复合设备；Host 只 claim MIDIStreaming，忽略 Audio。若其配置描述符超过 256 字节，Arduino Host 栈可能在枚举阶段失败，需要改 IDF 限制或换 Host 栈。
+- 只用 USB-C；没有 Grove/TRS 依赖。
+- 首次连接、供电、描述符兼容性仍需真机确认。
+
 首次上机：
 
 1. 把 `assets/test.mid` 和几首 `.mid` 放到 SD 卡的 `/midi/`；

@@ -1,14 +1,16 @@
 # Build the firmware and produce a single flashable image (offset 0x0).
 #   pwsh tools/make_bin.ps1
+#   pwsh tools/make_bin.ps1 -Env cardputer_midi_usb
 param(
-    [string]$Python = "python"
+    [string]$Python = "python",
+    [string]$Env = "cardputer_midi"
 )
 
 $ErrorActionPreference = "Stop"
 $root  = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $proj  = Join-Path $root "firmware"
 $out   = Join-Path $root "dist"
-$build = Join-Path $proj ".pio\build\cardputer_midi"
+$build = Join-Path $proj ".pio\build\$Env"
 
 if (-not (Get-Command pio -ErrorAction SilentlyContinue)) {
     $pioCmd = Join-Path (Split-Path -Parent (& $Python -c "import sys;print(sys.executable)")) "Scripts\platformio.exe"
@@ -16,15 +18,19 @@ if (-not (Get-Command pio -ErrorAction SilentlyContinue)) {
     $pioCmd = "pio"
 }
 
-Write-Host "== building ==" -ForegroundColor Cyan
-& $pioCmd run -d $proj
+Write-Host "== building $Env ==" -ForegroundColor Cyan
+& $pioCmd run -d $proj -e $Env
 if ($LASTEXITCODE -ne 0) { throw "build failed" }
 
 $esp = Join-Path $env:USERPROFILE ".platformio\packages\tool-esptoolpy\esptool.py"
 if (-not (Test-Path $esp)) { throw "esptool not found at $esp" }
 
 New-Item -ItemType Directory -Force -Path $out | Out-Null
-$target = Join-Path $out "CardputerMidiPlayer-8MB.bin"
+if ($Env -eq "cardputer_midi_usb") {
+    $target = Join-Path $out "CardputerMidiPlayer-USBHost-8MB.bin"
+} else {
+    $target = Join-Path $out "CardputerMidiPlayer-8MB.bin"
+}
 
 Write-Host "== merging ==" -ForegroundColor Cyan
 & $Python $esp --chip esp32s3 merge_bin `

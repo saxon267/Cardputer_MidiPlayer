@@ -14,6 +14,8 @@ struct App {
     bool     loop       = false;
     uint8_t  battery    = 80;
     bool     sdOk       = false;
+    bool     usbHostOk  = false;
+    bool     usbConnected = false;
     uint32_t bootStart  = 0;
     char     title[32]  = {0};
     char     toast[40]  = {0};

@@ -18,6 +18,11 @@ public:
     void setLoop(bool on);
     void setVolume(uint8_t v);
     void setSpeed(float s);
+    void setMuted(bool on) { _muted = on; }
+    bool muted() const { return _muted; }
+#if USB_MIDI_HOST
+    void resyncMidi();
+#endif
     float speed() const { return _speedX1000 / 1000.0f; }
 
     bool     playing() const { return _playing; }
@@ -61,6 +66,7 @@ private:
     volatile uint16_t         _underruns = 0;
     float                     _fade     = 0.0f;
     volatile bool             _sustainOn = false;
+    volatile bool             _muted    = false;
     volatile uint8_t          _voices    = 0;
     volatile uint32_t         _active[4] = {0, 0, 0, 0};
     bool                      _codecOk  = false;

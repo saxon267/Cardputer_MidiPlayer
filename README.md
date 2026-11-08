@@ -15,6 +15,7 @@
 | 音频 | ES8311 单声道 + NS4150B 1 W；3.5 mm 单声道耳机 |
 | 屏幕 | 240×135 IPS，1.14" |
 | v0.2.1 固件 | SMF Format 0/1 + 24 声部 / 2 泛音合成钢琴 + 44.1 kHz 直连 I2S |
+| USB-C Host（实验） | 一根 USB-C 直连 FM-1 Sloop，发 Note/CC，连接时静音本机喇叭；单独 build `cardputer_midi_usb` |
 | Phase 2 | 4 MB Flash 多采样钢琴（18 区 / 22.05 kHz / 16-bit） |
 | 工作量 | 合成版 MVP 60–90 h；采样版 110–160 h |
 | 音质 | 便携琴级别，不是钢琴；耳机明显更好 |
@@ -24,6 +25,8 @@
 **功能**：SD `/midi`（回退 `/`）、文件夹、`.mid` / `.midi`、Format 0/1、tempo、CC64 延音、24 声部钢琴、播放/暂停、`Fn+,` / `Fn+/` seek ±5 s、`[` / `]` seek ±1 s、0.1–3.0 倍速、Tab 切换动态钢琴卷帘、上一首/下一首、循环、音量/速度 NVS、8 个 Gruvbox 界面。
 
 **限制**：最多 14000 个事件（约 7000 个音符）；合成音色；无按键连发；无中文文件名。
+
+> **USB-C Host → FM-1（实验）**：`cardputer_midi_usb` build 没有 USB-CDC 串口，刷写/恢复顺序、Sloop 通道设置和供电注意事项见 [`firmware/README.md`](firmware/README.md#usb-c-host--fm-1实验需单独-build)。
 
 ![Piano roll](design/out/08-piano-roll.png)
 

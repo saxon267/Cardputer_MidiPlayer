@@ -6,6 +6,9 @@
 #include <math.h>
 #include <string.h>
 #include "synth.h"
+#if USB_MIDI_HOST
+#include "usb_midi_host.h"
+#endif
 
 AudioEngine audio;
 
@@ -95,6 +98,16 @@ void AudioEngine::taskEntry(void* arg)
 
 void AudioEngine::apply(const MidiEvent& e)
 {
+#if USB_MIDI_HOST
+    switch (e.type) {
+        case EV_ON:      usbMidi.noteOn(e.pad, e.note, e.vel); break;
+        case EV_OFF:     usbMidi.noteOff(e.pad, e.note);       break;
+        case EV_SUS_ON:  usbMidi.controlChange(e.pad, 64, 127); break;
+        case EV_SUS_OFF: usbMidi.controlChange(e.pad, 64, 0);   break;
+        case EV_ALL_OFF: usbMidi.controlChange(e.pad, 123, 0);  break;
+        default: break;
+    }
+#endif
     switch (e.type) {
         case EV_ON:      gPiano->noteOn(e.note, e.vel, e.pad); break;
         case EV_OFF:     gPiano->noteOff(e.note, e.pad);       break;
@@ -107,6 +120,9 @@ void AudioEngine::apply(const MidiEvent& e)
 
 void AudioEngine::resetPlayback()
 {
+#if USB_MIDI_HOST
+    usbMidi.panic();
+#endif
     _idx    = 0;
     _posUs  = 0;
     _ended  = false;
@@ -119,6 +135,9 @@ void AudioEngine::resetPlayback()
 
 void AudioEngine::handleSeek()
 {
+#if USB_MIDI_HOST
+    usbMidi.panic();
+#endif
     uint32_t target = _seekTo;
     if (target > _durationUs) target = _durationUs;
     _posUs = target;
@@ -171,11 +190,16 @@ void AudioEngine::taskLoop()
             }
 
             if (active || _fade > 0.002f) {
-                float vol = _volume / 100.0f;
-                gPiano->render(mono, AUDIO_BLOCK, vol * vol * 0.90f * _fade);
-                if (active) {
-                    gPiano->fillMask(_active);
-                    _voices = gPiano->activeCount();
+                if (_muted) {
+                    memset(mono, 0, sizeof(mono));
+                    if (active) _voices = 0;
+                } else {
+                    float vol = _volume / 100.0f;
+                    gPiano->render(mono, AUDIO_BLOCK, vol * vol * 0.90f * _fade);
+                    if (active) {
+                        gPiano->fillMask(_active);
+                        _voices = gPiano->activeCount();
+                    }
                 }
             } else {
                 memset(mono, 0, sizeof(mono));
@@ -190,6 +214,9 @@ void AudioEngine::taskLoop()
                     } else {
                         _ended   = true;
                         _playing = false;
+#if USB_MIDI_HOST
+                        usbMidi.panic();
+#endif
                         gPiano->allOff();
                         _voices = 0;
                         _active[0] = _active[1] = _active[2] = _active[3] = 0;
@@ -260,7 +287,41 @@ void AudioEngine::togglePause()
 {
     if (!_playing || _ended) return;
     _paused = !_paused;
+#if USB_MIDI_HOST
+    if (_paused) usbMidi.panic();
+    else         resyncMidi();
+#endif
 }
+
+#if USB_MIDI_HOST
+void AudioEngine::resyncMidi()
+{
+    if (!_playing || _paused || !_events || !_count) return;
+
+    uint32_t on[16][4] = {};
+    bool sus = false;
+    for (size_t i = 0; i < _count && _events[i].t <= _posUs; ++i) {
+        const MidiEvent& e = _events[i];
+        const uint8_t ch = e.pad & 15;
+        switch (e.type) {
+            case EV_ON:  on[ch][e.note >> 5] |=  (1u << (e.note & 31)); break;
+            case EV_OFF: on[ch][e.note >> 5] &= ~(1u << (e.note & 31)); break;
+            case EV_SUS_ON:  sus = true;  break;
+            case EV_SUS_OFF: sus = false; break;
+            case EV_ALL_OFF:
+                for (int c = 0; c < 16; ++c) on[c][0] = on[c][1] = on[c][2] = on[c][3] = 0;
+                sus = false;
+                break;
+            default: break;
+        }
+    }
+    for (int ch = 0; ch < 16; ++ch)
+        for (int n = 0; n < 128; ++n)
+            if (on[ch][n >> 5] & (1u << (n & 31))) usbMidi.noteOn((uint8_t)ch, (uint8_t)n, 100);
+    if (sus)
+        for (int ch = 0; ch < 16; ++ch) usbMidi.controlChange((uint8_t)ch, 64, 127);
+}
+#endif
 
 void AudioEngine::stop()
 {

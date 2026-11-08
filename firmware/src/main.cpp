@@ -8,6 +8,9 @@
 #include "library.h"
 #include "midi.h"
 #include "ui.h"
+#if USB_MIDI_HOST
+#include "usb_midi_host.h"
+#endif
 
 App  app;
 MidiFile song;
@@ -179,6 +182,17 @@ static void changeSpeed(float delta)
     snprintf(msg, sizeof(msg), "SPEED x%.1f", audio.speed());
     setToast(msg);
 }
+
+#if USB_MIDI_HOST
+static void usbConnectCallback(bool connected, void*)
+{
+    app.usbConnected = connected;
+    audio.setMuted(connected);
+#if USB_MIDI_HOST
+    if (connected) audio.resyncMidi();
+#endif
+}
+#endif
 
 static void handleSerial()
 {
@@ -417,6 +431,12 @@ void setup()
     audio.setLoop(app.loop);
     if (audioOk) audio.start();
 
+#if USB_MIDI_HOST
+    usbMidi.setConnectCallback(usbConnectCallback, nullptr);
+    app.usbHostOk = usbMidi.begin();
+    if (!app.usbHostOk) setToast("USB HOST FAIL");
+#endif
+
     app.sdOk = library.begin();
     if (app.sdOk) {
         if (!library.scan("/midi")) library.scan("/");
@@ -466,6 +486,14 @@ void setup()
 void loop()
 {
     M5Cardputer.update();
+#if USB_MIDI_HOST
+    usbMidi.poll();
+    static bool lastUsb = false;
+    if (app.usbConnected != lastUsb) {
+        lastUsb = app.usbConnected;
+        setToast(app.usbConnected ? "FM1 CONNECTED" : "FM1 DISCONNECTED");
+    }
+#endif
     handleSerial();
     handleKeys();
 
