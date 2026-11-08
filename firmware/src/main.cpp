@@ -202,6 +202,38 @@ static void stopTake()
 }
 #endif
 
+static void deleteSelected()
+{
+    app.confirmDelete = false;
+    if (!app.sdOk || app.sel < 0 || app.sel >= library.count()) {
+        setToast("NO FILE");
+        return;
+    }
+    const FileEntry& e = library.at(app.sel);
+    if (e.dir) {
+        setToast("NOT A FILE");
+        return;
+    }
+    char path[96];
+    strncpy(path, e.path, sizeof(path) - 1);
+    path[sizeof(path) - 1] = 0;
+    if (!SD.remove(path)) {
+        setToast("DELETE FAIL");
+        return;
+    }
+    app.playIndex = -1;
+    char current[96];
+    strncpy(current, library.path(), sizeof(current) - 1);
+    current[sizeof(current) - 1] = 0;
+    library.scan(current);
+    int n = library.count();
+    if (app.sel >= n) app.sel = n ? n - 1 : 0;
+    if (app.sel < 0) app.sel = 0;
+    adjustScroll();
+    probeCurrent();
+    setToast("DELETED");
+}
+
 #if USB_MIDI_HOST
 #if USB_MIDI_HOST
 static void usbLog(const char* msg)
@@ -301,6 +333,7 @@ static void handleKeys()
     static bool pMinus = false, pPlus = false;
     static bool pLBr = false, pRBr = false, pTab = false;
     static bool pR = false, p1 = false, p2 = false, p3 = false, p4 = false, p0 = false;
+    static bool pD = false;
 
     bool enter = ks.enter;
     bool space = ks.space;
@@ -318,6 +351,7 @@ static void handleKeys()
     bool rbr   = M5Cardputer.Keyboard.isKeyPressed(']');
     bool tab   = ks.tab;
     bool rkey  = !ks.fn && M5Cardputer.Keyboard.isKeyPressed('r');
+    bool dkey  = !ks.fn && M5Cardputer.Keyboard.isKeyPressed('d');
     bool d1    = !ks.fn && M5Cardputer.Keyboard.isKeyPressed('1');
     bool d2    = !ks.fn && M5Cardputer.Keyboard.isKeyPressed('2');
     bool d3    = !ks.fn && M5Cardputer.Keyboard.isKeyPressed('3');
@@ -340,6 +374,7 @@ static void handleKeys()
     bool eRBr  = rbr && !pRBr;
     bool eTab  = tab && !pTab;
     bool eR    = rkey && !pR;
+    bool eD    = dkey && !pD;
     bool e1    = d1 && !p1;
     bool e2    = d2 && !p2;
     bool e3    = d3 && !p3;
@@ -352,6 +387,17 @@ static void handleKeys()
     pMinus = minus; pPlus = plus;
     pLBr = lbr; pRBr = rbr; pTab = tab;
     pR = rkey; p1 = d1; p2 = d2; p3 = d3; p4 = d4; p0 = d0;
+    pD = dkey;
+
+    if (app.confirmDelete) {
+        if (eEnter || eSpace) {
+            deleteSelected();
+        } else if (eDel || eD) {
+            app.confirmDelete = false;
+            setToast("CANCELED");
+        }
+        return;
+    }
 
     // Speed: Fn + [ / ].  Plain [ / ] scrubs the song.
 #if !USB_MIDI_HOST
@@ -406,6 +452,10 @@ static void handleKeys()
             }
         }
         if (eRight) loadIndex(app.sel);
+        if (eD) {
+            if (n && !library.at(app.sel).dir) app.confirmDelete = true;
+            else                              setToast("SELECT MIDI FILE");
+        }
     } else if (app.screen == Screen::PLAYER) {
         if (eEnter || eSpace) {
             if (audio.ended()) audio.play();

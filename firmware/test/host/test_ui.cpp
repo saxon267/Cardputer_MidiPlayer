@@ -102,6 +102,10 @@ int main()
     app.info = MidiInfo{};
     save("ui_library.bmp");
 
+    app.confirmDelete = true;
+    save("ui_delete.bmp");
+    app.confirmDelete = false;
+
     // playing
     setPlaying();
     save("ui_player.bmp");

@@ -1,6 +1,6 @@
-# Cardputer MIDI Player — 固件 v0.5.1
+# Cardputer MIDI Player — 固件 v0.6.0
 
-Cardputer-Adv 上的 SD 卡 MIDI 播放器。v0.5.1 在 v0.4.0 的播放器、钢琴卷帘、倍速之上，为 USB-C Host build 增加 **MIDI INPUT 标签页**：录 FM-1 自己的键盘/sequencer，按 CH1/2/3/10 选择通道，实时钢琴卷帘，停止后写入 `/midi/MyMIDI/TAKE_xxxx.MID`。
+Cardputer-Adv 上的 SD 卡 MIDI 播放器。v0.6.0 在 v0.4.0 的播放器、钢琴卷帘、倍速之上，为 USB-C Host build 增加 **MIDI INPUT 标签页**：录 FM-1 自己的键盘/sequencer，按 CH1/2/3/10 选择通道，实时钢琴卷帘，停止后写入 `/midi/MyMIDI/<PREFIX>_TAKE_xxxx.MID`。
 
 > 状态：普通 `cardputer_midi` build 已在实体 Cardputer-Adv 上验证启动/播放/CPU/无欠载；USB-C Host 与 MIDI INPUT 为实验功能，需真机复测。  
 > 速查表：[`../CHEATSHEET.md`](../CHEATSHEET.md) · 发布说明：[`../RELEASE_NOTES.md`](../RELEASE_NOTES.md)
@@ -17,7 +17,7 @@ Cardputer-Adv 上的 SD 卡 MIDI 播放器。v0.5.1 在 v0.4.0 的播放器、�
 | 音色 | 24 声部加法钢琴（2 个泛音 + 噪声起音），44.1 kHz 单声道 |
 | 走带 | 播放 / 暂停、`Fn+,` / `Fn+/` 快退快进 5 s、上一首 / 下一首、单曲循环、**0.1–3.0 倍速** |
 | 钢琴卷帘 | `Tab` 在播放页 / 卷帘页之间切换；卷帘横向跟随时钟滚动、纵向自动跟随音域 |
-| MIDI INPUT | Host build：录 FM-1 键盘/sequencer，`1/2/3/4` 选 CH1/2/3/10，实时卷帘，写 `/midi/MyMIDI/TAKE_xxxx.MID` |
+| MIDI INPUT | Host build：录 FM-1 键盘/sequencer，`1/2/3/4` 选 CH1/2/3/10，实时卷帘，写 `/midi/MyMIDI/<PREFIX>_TAKE_xxxx.MID` |
 | 音量 | 5 / 10 步进，NVS 保存 |
 | UI | 240×135 Gruvbox Dark，列表 / 播放 / 卷帘 / MIDI INPUT / 暂停 / 结束 / 无文件 / 无卡 / 开机 |
 | 状态 | 进度、总时长、BPM、调号、小节、实时音符、声部数、踏板、速度 |
@@ -109,7 +109,7 @@ Sloop 2.7 的 **`ARP 2 → HOLD`** 在 `ARP MODE = OFF` 时会把收到的 MIDI 
 - 只用 USB-C；没有 Grove/TRS 依赖。
 - 首次连接、供电、描述符兼容性仍需真机确认。
 
-### MIDI INPUT（Host build，v0.5.1）
+### MIDI INPUT（Host build，v0.6.0）
 
 ![MIDI INPUT](../design/out/09-midi-input.png)
 
@@ -122,10 +122,20 @@ Sloop 2.7 的 **`ARP 2 → HOLD`** 在 `ARP MODE = OFF` 时会把收到的 MIDI 
 - 停止后写到 SD：
 
   ```text
-  /midi/MyMIDI/TAKE_0001.MID
-  /midi/MyMIDI/TAKE_0002.MID
+  /midi/MyMIDI/LEAD_TAKE_0001.MID
+  /midi/MyMIDI/PAD_TAKE_0002.MID
   ...
   ```
+
+- 前缀规则：
+
+  | 通道 | 前缀 | 示例 |
+  |---|---|---|
+  | CH1 | `LEAD` | `LEAD_TAKE_0001.MID` |
+  | CH2 | `PAD` | `PAD_TAKE_0001.MID` |
+  | CH3 | `BASS` | `BASS_TAKE_0001.MID` |
+  | CH10 | `DRUM` | `DRUM_TAKE_0001.MID` |
+  | 多通道 | 按固定顺序连接 | `LEAD_PAD_DRUM_TAKE_0001.MID` |
 
 - 文件：Format 0、480 PPQ、单轨、当前 BPM 的 tempo；记录 Note On/Off、CC64；不记录 SysEx/Pitch Bend/Clock。
 - 最多 **6000 个事件**（约 48 KB RAM）；满 6000 自动停止并保存。
@@ -169,6 +179,7 @@ Fn + ,  = 左      Fn + /  = 右
 | 列表 | `Fn+;` / `Fn+.` | 上 / 下 |
 | 列表 | `Fn+,` / `Backspace` | 返回上级 |
 | 列表 | `Fn+/` | 进入选中的目录 |
+| 列表 | `D` | 删除选中的 `.mid`；`Enter` 确认，`Backspace` 取消 |
 | 播放 | `Space` / `Enter` | 播放 / 暂停 |
 | 播放 | `Fn+,` / `Fn+/` | −5 s / +5 s |
 | 播放 | `[` / `]` | 进度 −1 s / +1 s |
@@ -178,7 +189,7 @@ Fn + ,  = 左      Fn + /  = 右
 | 卷帘 | `[` / `]` | 进度 −1 s / +1 s |
 | 卷帘 | `Backspace` | 返回播放页 |
 | MIDI INPUT | `1` / `2` / `3` / `4` | 选择/取消 CH1 / CH2 / CH3 / CH10（至少保留一个） |
-| MIDI INPUT | `R` / `Enter` / `Space` | 开始/停止录音；停止后写 `/midi/MyMIDI/TAKE_xxxx.MID` |
+| MIDI INPUT | `R` / `Enter` / `Space` | 开始/停止录音；停止后写 `/midi/MyMIDI/<PREFIX>_TAKE_xxxx.MID` |
 | MIDI INPUT | `Tab` | 回播放页；若正在录音会先停止并保存 |
 | MIDI INPUT | `Backspace` | 回播放页；若正在录音会先停止并保存 |
 | 播放/卷帘 | `Fn+;` / `Fn+.` | 音量 +5 / −5 |
@@ -188,6 +199,17 @@ Fn + ,  = 左      Fn + /  = 右
 | 全局 | `-` / `=` | 音量 −10 / +10 |
 
 > `Fn+,` / `Fn+/` 是左右方向键（与 M5Cardputer 键位一致），因此 seek 用这两个；`Fn+;` / `Fn+.` 是上下，用于音量。
+
+### 删除文件
+
+![Delete confirm](../design/out/10-delete-confirm.png)
+
+列表里选中 `.mid` / `.midi` 后按 `D`：
+
+- `Enter` / `Space`：删除；
+- `Backspace` / `D`：取消；
+- 目录不能删除；
+- 删除后重新扫描当前目录。
 
 ### USB 串口调试键（115200）
 

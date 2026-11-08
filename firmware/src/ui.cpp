@@ -404,7 +404,19 @@ void UI::drawLibrary()
         rect(237, ty, 2, th, C_FAINT);
     }
 
-    hints("ENTER", "PLAY", "SPC", "PREVIEW", "BKSP", "UP");
+    hints("ENTER", "PLAY", "D", "DELETE", "BKSP", "UP");
+
+    if (app.confirmDelete && app.sel >= 0 && app.sel < library.count()) {
+        rect(10, 38, 220, 58, C_BAR);
+        frame(10, 38, 220, 58, C_RED);
+        textC(SCR_W / 2, 43, "DELETE FILE?", C_RED, true, 1);
+        char nm[26];
+        strncpy(nm, library.at(app.sel).name, sizeof(nm) - 1);
+        nm[sizeof(nm) - 1] = 0;
+        textC(SCR_W / 2, 56, nm, C_TXT, false, 1);
+        textC(SCR_W / 2, 72, "ENTER YES", C_AMB, true, 1);
+        textC(SCR_W / 2, 83, "BKSP NO", C_DIM, false, 1);
+    }
 }
 
 void UI::drawPlayer()

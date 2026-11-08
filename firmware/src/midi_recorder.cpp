@@ -145,10 +145,21 @@ bool MidiRecorder::save(char* outPath, size_t outLen)
     SD.mkdir("/midi");
     SD.mkdir("/midi/MyMIDI");
 
+    char prefix[24] = {0};
+    auto addPrefix = [&](const char* p) {
+        if (prefix[0]) strncat(prefix, "_", sizeof(prefix) - strlen(prefix) - 1);
+        strncat(prefix, p, sizeof(prefix) - strlen(prefix) - 1);
+    };
+    if (_mask & (1u << 0)) addPrefix("LEAD");
+    if (_mask & (1u << 1)) addPrefix("PAD");
+    if (_mask & (1u << 2)) addPrefix("BASS");
+    if (_mask & (1u << 9)) addPrefix("DRUM");
+    if (!prefix[0]) strcpy(prefix, "MIDI");
+
     char path[64] = {0};
     int take = 0;
     for (int i = 1; i <= 9999; ++i) {
-        snprintf(path, sizeof(path), "/midi/MyMIDI/TAKE_%04d.MID", i);
+        snprintf(path, sizeof(path), "/midi/MyMIDI/%s_TAKE_%04d.MID", prefix, i);
         if (!SD.exists(path)) { take = i; break; }
     }
     if (take == 0) return false;

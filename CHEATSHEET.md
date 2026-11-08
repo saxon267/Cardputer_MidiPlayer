@@ -1,4 +1,4 @@
-# Cardputer MIDI Player — v0.5.1 Cheat Sheet
+# Cardputer MIDI Player — v0.6.0 Cheat Sheet
 
 > M5Stack Cardputer-Adv · 240×135 · Gruvbox Dark · 一根 USB-C 本地播放；可选 USB-C Host 直连 M-VAVE FM-1 / Sloop。
 
@@ -43,6 +43,9 @@ Fn + ,  = 左      Fn + /  = 右
 | `Enter` / `Space` | 进目录 / 播放文件 |
 | `Fn+,` / `Backspace` | 返回上级 |
 | `Fn+/` | 进入选中的目录 |
+| `D` | 删除选中的 `.mid`；`Enter` 确认，`Backspace` 取消 |
+
+![Delete confirm](design/out/10-delete-confirm.png)
 
 ### 播放 / Player
 
@@ -120,11 +123,16 @@ PLAYER → PIANO ROLL → MIDI INPUT → PLAYER
 | `Backspace` | 回播放页；录音中会先停止并保存 |
 
 - 实时钢琴卷帘只显示选中的通道；
-- 停止后写入：
-  ```text
-  /midi/MyMIDI/TAKE_0001.MID
-  /midi/MyMIDI/TAKE_0002.MID
-  ```
+- 停止后写入 `/midi/MyMIDI/`，文件名带通道前缀：
+
+  | 通道 | 前缀 | 示例 |
+  |---|---|---|
+  | CH1 | `LEAD` | `LEAD_TAKE_0001.MID` |
+  | CH2 | `PAD` | `PAD_TAKE_0001.MID` |
+  | CH3 | `BASS` | `BASS_TAKE_0001.MID` |
+  | CH10 | `DRUM` | `DRUM_TAKE_0001.MID` |
+  | 多通道 | 按下单顺序连接 | `LEAD_PAD_DRUM_TAKE_0001.MID` |
+
 - Format 0、480 PPQ、单轨；当前 BPM 的 tempo；录 Note On/Off、CC64；
 - 最多 **6000 个事件**；满了自动停止并保存；
 - Sloop 发 sequencer：`GLO → MIDI 2 → OUT = SEQ`；只弹键盘用 `OUT = KEYS`。
@@ -251,10 +259,10 @@ Host build **没有这个串口**；用屏幕和 `/usb.log`。
 
 ## 9. 版本与文件
 
-- **Release：** v0.4.0（v0.5.1 MIDI INPUT 为 beta）
+- **Release：** v0.4.0（v0.6.0 MIDI INPUT 为 beta）
 - **普通镜像：** `dist/CardputerMidiPlayer-8MB.bin`（0x0）
 - **Host 镜像：** `dist/CardputerMidiPlayer-USBHost-8MB.bin`（0x0）
-- **录音目录：** `/midi/MyMIDI/TAKE_xxxx.MID`
+- **录音目录：** `/midi/MyMIDI/<PREFIX>_TAKE_xxxx.MID`
 - **校验：** `dist/SHA256SUMS.txt`
 - **仓库：** https://github.com/saxon267/Cardputer_MidiPlayer
 - **详细文档：** [firmware/README.md](firmware/README.md) · [可行性评估.md](可行性评估.md)

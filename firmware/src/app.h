@@ -14,6 +14,7 @@ struct App {
     uint16_t bpmX10     = 1200;
     bool     bpmFromFm1 = false;
     bool     loop       = false;
+    bool     confirmDelete = false;
     uint8_t  battery    = 80;
     bool     sdOk       = false;
     bool     usbHostOk  = false;

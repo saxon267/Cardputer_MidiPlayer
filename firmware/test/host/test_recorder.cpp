@@ -40,6 +40,10 @@ int main()
         return 1;
     }
     std::printf("saved=%s events=%d\n", path, rec.count());
+    if (!strstr(path, "LEAD_PAD_DRUM_TAKE_")) {
+        std::printf("RESULT FAIL prefix %s\n", path);
+        return 1;
+    }
 
     char real[96];
     snprintf(real, sizeof(real), "test_out%s", path);
