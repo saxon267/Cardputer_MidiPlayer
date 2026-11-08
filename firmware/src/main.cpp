@@ -144,8 +144,13 @@ static void retrySd()
 
     app.sel = 0;
     app.scroll = 0;
-    app.screen = library.count() ? Screen::LIBRARY : Screen::NO_FILES;
-    if (app.screen == Screen::LIBRARY) probeCurrent();
+    app.playIndex = -1;
+    app.screen = Screen::PLAYER;
+    app.info = MidiInfo{};
+    app.title[0] = 0;
+    app.ev = nullptr;
+    app.evCount = 0;
+    if (library.count()) probeCurrent();
 }
 
 static void refreshLibrary()
@@ -249,7 +254,101 @@ static void deleteSelected()
     setToast("DELETED");
 }
 
-#if USB_MIDI_HOST
+static void startRename()
+{
+    if (!app.sdOk || app.sel < 0 || app.sel >= library.count()) {
+        setToast("NO FILE");
+        return;
+    }
+    const FileEntry& e = library.at(app.sel);
+    if (e.dir) {
+        setToast("NOT A FILE");
+        return;
+    }
+    const char* dot = strrchr(e.name, '.');
+    size_t stem = dot ? (size_t)(dot - e.name) : strlen(e.name);
+    if (stem > sizeof(app.renameBuf) - 1) stem = sizeof(app.renameBuf) - 1;
+    memcpy(app.renameBuf, e.name, stem);
+    app.renameBuf[stem] = 0;
+    if (dot && strlen(dot) < sizeof(app.renameExt)) {
+        strcpy(app.renameExt, dot);
+    } else {
+        strcpy(app.renameExt, ".MID");
+    }
+    app.renaming = true;
+    app.confirmDelete = false;
+}
+
+static void cancelRename()
+{
+    app.renaming = false;
+    setToast("CANCELED");
+}
+
+static void finishRename()
+{
+    if (!app.renaming) return;
+    app.renaming = false;
+    if (!app.sdOk || app.sel < 0 || app.sel >= library.count()) {
+        setToast("NO FILE");
+        return;
+    }
+    if (!app.renameBuf[0]) {
+        setToast("EMPTY NAME");
+        return;
+    }
+
+    char newName[48];
+    snprintf(newName, sizeof(newName), "%s%s", app.renameBuf, app.renameExt);
+
+    const FileEntry& e = library.at(app.sel);
+    char oldPath[96];
+    strncpy(oldPath, e.path, sizeof(oldPath) - 1);
+    oldPath[sizeof(oldPath) - 1] = 0;
+
+    char dir[96];
+    const char* slash = strrchr(oldPath, '/');
+    if (slash) {
+        size_t n = (size_t)(slash - oldPath);
+        if (n >= sizeof(dir)) n = sizeof(dir) - 1;
+        memcpy(dir, oldPath, n);
+        dir[n] = 0;
+    } else {
+        dir[0] = 0;
+    }
+
+    char target[160];
+    if (dir[0]) snprintf(target, sizeof(target), "%s/%s", dir, newName);
+    else        snprintf(target, sizeof(target), "/%s", newName);
+
+    if (strcasecmp(oldPath, target) == 0) {
+        setToast("UNCHANGED");
+        return;
+    }
+    if (SD.exists(target)) {
+        setToast("NAME EXISTS");
+        return;
+    }
+    if (!SD.rename(oldPath, target)) {
+        setToast("RENAME FAIL");
+        return;
+    }
+
+    char cur[96];
+    strncpy(cur, library.path(), sizeof(cur) - 1);
+    cur[sizeof(cur) - 1] = 0;
+    library.scan(cur);
+    for (int i = 0; i < library.count(); ++i) {
+        if (strcmp(library.at(i).name, newName) == 0) {
+            app.sel = i;
+            break;
+        }
+    }
+    adjustScroll();
+    probeCurrent();
+    setToast("RENAMED");
+}
+
 #if USB_MIDI_HOST
 static void usbLog(const char* msg)
 {
@@ -259,7 +358,6 @@ static void usbLog(const char* msg)
     f.printf("[%lu] %s\n", (unsigned long)millis(), msg);
     f.close();
 }
-#endif
 
 static void usbConnectCallback(bool connected, void*)
 {
@@ -404,6 +502,25 @@ static void handleKeys()
     pR = rkey; p1 = d1; p2 = d2; p3 = d3; p4 = d4; p0 = d0;
     pD = dkey;
 
+    if (app.renaming) {
+        for (char c : ks.word) {
+            if (c < 32 || c > 126) continue;
+            if (strchr("/\\:*?\"<>|", c)) continue;
+            size_t n = strlen(app.renameBuf);
+            if (n < sizeof(app.renameBuf) - 1) {
+                app.renameBuf[n] = c;
+                app.renameBuf[n + 1] = 0;
+            }
+        }
+        if (eDel) {
+            size_t n = strlen(app.renameBuf);
+            if (n) app.renameBuf[n - 1] = 0;
+        }
+        if (eEnter) finishRename();
+        else if (eTab) cancelRename();
+        return;
+    }
+
     if (app.confirmDelete) {
         if (eEnter || eSpace) {
             deleteSelected();
@@ -470,6 +587,10 @@ static void handleKeys()
         if (eRight) loadIndex(app.sel);
         if (eD) {
             if (n && !library.at(app.sel).dir) app.confirmDelete = true;
+            else                              setToast("SELECT MIDI FILE");
+        }
+        if (eNext) {
+            if (n && !library.at(app.sel).dir) startRename();
             else                              setToast("SELECT MIDI FILE");
         }
     } else if (app.screen == Screen::PLAYER) {
@@ -619,13 +740,16 @@ void setup()
 
     if (!app.sdOk) {
         app.screen = Screen::NO_SD;
-    } else if (library.count() == 0) {
-        app.screen = Screen::NO_FILES;
     } else {
-        app.screen = Screen::LIBRARY;
+        app.screen = Screen::PLAYER;
         app.sel = 0;
         app.scroll = 0;
-        probeCurrent();
+        app.playIndex = -1;
+        app.info = MidiInfo{};
+        app.title[0] = 0;
+        app.ev = nullptr;
+        app.evCount = 0;
+        if (library.count()) probeCurrent();
     }
 
     ui.render();

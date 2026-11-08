@@ -267,7 +267,7 @@
 - 网格：按当前 BPM 画拍线，4 拍一条 `EDGE` 小节线。
 - 底部 24 px：`时间 / 总时长`、`LOOP`、`BPM`、`x1.0`；第二行 `[ ] SEEK   TAB PLAYER`。
 
-## 5.2 MIDI INPUT（v0.7.0，Host build）
+## 5.2 MIDI INPUT（v0.8.0，Host build）
 
 ![MIDI INPUT](out/09-midi-input.png)
 
@@ -278,7 +278,7 @@
 - 播放头在右侧；录音中卷帘从右向左滚动。
 - 底部 y=101..134：`REC`/`IN`/`TAKE`、时间、`EV n`、`BPM`、`R REC/STOP TAB NEXT 1/2/3/4 CH`。
 - 未连接 FM-1：显示 `CONNECT FM1 USB`；无事件：`PRESS R TO RECORD`。
-- 停止后写 `/midi/MyMIDI/<PREFIX>_TAKE_xxxx.MID`，并弹保存路径；前缀按所选通道（LEAD/PAD/BASS/DRUM）。
+- 停止后写 `/midi/MyMIDI/<PREFIX>_xxxx.MID`，并弹保存路径；前缀按所选通道（LEAD/PAD/BASS/DRUM）。
 
 ---
 

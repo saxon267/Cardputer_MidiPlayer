@@ -1,6 +1,6 @@
-# Cardputer MIDI Player — 固件 v0.7.0
+# Cardputer MIDI Player — 固件 v0.8.0
 
-Cardputer-Adv 上的 SD 卡 MIDI 播放器。v0.7.0 在 v0.4.0 的播放器、钢琴卷帘、倍速之上，为 USB-C Host build 增加 **RECORDER 标签页**：录 FM-1 自己的键盘/sequencer，按 CH1/2/3/10 选择通道，实时钢琴卷帘，停止后写入 `/midi/MyMIDI/<PREFIX>_TAKE_xxxx.MID`。
+Cardputer-Adv 上的 SD 卡 MIDI 播放器。v0.8.0 在 v0.4.0 的播放器、钢琴卷帘、倍速之上，为 USB-C Host build 增加 **RECORDER 标签页**：录 FM-1 自己的键盘/sequencer，按 CH1/2/3/10 选择通道，实时钢琴卷帘，停止后写入 `/midi/MyMIDI/<PREFIX>_xxxx.MID`。
 
 > 状态：普通 `cardputer_midi` build 已在实体 Cardputer-Adv 上验证启动/播放/CPU/无欠载；USB-C Host 与 RECORDER 为实验功能，需真机复测。  
 > 速查表：[`../CHEATSHEET.md`](../CHEATSHEET.md) · 发布说明：[`../RELEASE_NOTES.md`](../RELEASE_NOTES.md)
@@ -17,7 +17,7 @@ Cardputer-Adv 上的 SD 卡 MIDI 播放器。v0.7.0 在 v0.4.0 的播放器、�
 | 音色 | 24 声部加法钢琴（2 个泛音 + 噪声起音），44.1 kHz 单声道 |
 | 走带 | 播放 / 暂停、`,` / `/` 快退快进 5 s、上一首 / 下一首、单曲循环、**0.1–3.0 倍速** |
 | 四页 | `Tab`: PLAYER → PIANO → RECORDER → FILES → PLAYER；卷帘横向跟随时钟滚动、纵向自动跟随音域 |
-| RECORDER | Host build：录 FM-1 键盘/sequencer，`1/2/3/4` 选 CH1/2/3/10，实时卷帘，写 `/midi/MyMIDI/<PREFIX>_TAKE_xxxx.MID` |
+| RECORDER | Host build：录 FM-1 键盘/sequencer，`1/2/3/4` 选 CH1/2/3/10，实时卷帘，写 `/midi/MyMIDI/<PREFIX>_xxxx.MID` |
 | 音量 | 5 / 10 步进，NVS 保存 |
 | UI | 240×135 Gruvbox Dark，列表 / 播放 / 卷帘 / RECORDER / 暂停 / 结束 / 无文件 / 无卡 / 开机 |
 | 状态 | 进度、总时长、BPM、调号、小节、实时音符、声部数、踏板、速度 |
@@ -109,7 +109,7 @@ Sloop 2.7 的 **`ARP 2 → HOLD`** 在 `ARP MODE = OFF` 时会把收到的 MIDI 
 - 只用 USB-C；没有 Grove/TRS 依赖。
 - 首次连接、供电、描述符兼容性仍需真机确认。
 
-### RECORDER（Host build，v0.7.0）
+### RECORDER（Host build，v0.8.0）
 
 ![RECORDER](../design/out/09-midi-input.png)
 
@@ -123,8 +123,8 @@ Sloop 2.7 的 **`ARP 2 → HOLD`** 在 `ARP MODE = OFF` 时会把收到的 MIDI 
 - 停止后写到 SD：
 
   ```text
-  /midi/MyMIDI/LEAD_TAKE_0001.MID
-  /midi/MyMIDI/PAD_TAKE_0002.MID
+  /midi/MyMIDI/LEAD_0001.MID
+  /midi/MyMIDI/PAD_0002.MID
   ...
   ```
 
@@ -132,11 +132,11 @@ Sloop 2.7 的 **`ARP 2 → HOLD`** 在 `ARP MODE = OFF` 时会把收到的 MIDI 
 
   | 通道 | 前缀 | 示例 |
   |---|---|---|
-  | CH1 | `LEAD` | `LEAD_TAKE_0001.MID` |
-  | CH2 | `PAD` | `PAD_TAKE_0001.MID` |
-  | CH3 | `BASS` | `BASS_TAKE_0001.MID` |
-  | CH10 | `DRUM` | `DRUM_TAKE_0001.MID` |
-  | 多通道 | 按固定顺序连接 | `LEAD_PAD_DRUM_TAKE_0001.MID` |
+  | CH1 | `LEAD` | `LEAD_0001.MID` |
+  | CH2 | `PAD` | `PAD_0001.MID` |
+  | CH3 | `BASS` | `BASS_0001.MID` |
+  | CH10 | `DRUM` | `DRUM_0001.MID` |
+  | 多通道 | 按固定顺序连接 | `LEAD_PAD_DRUM_0001.MID` |
 
 - 文件：Format 0、480 PPQ、单轨、当前 BPM 的 tempo；记录 Note On/Off、CC64；不记录 SysEx/Pitch Bend/Clock。
 - 最多 **6000 个事件**（约 48 KB RAM）；满 6000 自动停止并保存。
@@ -161,7 +161,7 @@ Sloop 2.7 的 **`ARP 2 → HOLD`** 在 `ARP MODE = OFF` 时会把收到的 MIDI 
    [midi] audio=1 codec=1 heap=...
    [midi] sd=1 files=N heap=...
    ```
-3. 列表里选文件，`Enter` 播放；`Space` 暂停/继续；`Backspace` 回列表；
+3. 上电直接进入 PLAYER；按 `Backspace` 到 FILES，选文件后 `Enter` 播放；`Space` 暂停/继续；
 4. 听到声音后看串口 `cpu=...% ur=...`：`ur` 应长期为 0，`cpu` 建议 <60%。
 
 ## 3. 按键
@@ -181,6 +181,7 @@ Cardputer-Adv 的四个方向键直接按，不需要 `Fn`：
 | 文件管理器 | `,` / `Backspace` | 返回上级 |
 | 文件管理器 | `/` | 进入选中的目录 |
 | 文件管理器 | `D` | 删除选中的 `.mid`；`Enter` 确认，`Backspace` 取消 |
+| 文件管理器 | `N` | 重命名选中的 `.mid`；输入后 `Enter` 确认，`Backspace` 退格，`Tab` 取消 |
 | 文件管理器 | `Tab` | 切到播放器 |
 | 播放器 | `Space` / `Enter` | 播放 / 暂停 |
 | 播放器 | `,` / `/` | −5 s / +5 s |
@@ -193,7 +194,7 @@ Cardputer-Adv 的四个方向键直接按，不需要 `Fn`：
 | 钢琴窗 | `,` / `/` | −5 s / +5 s |
 | 钢琴窗 | `[` / `]` | 进度 −1 s / +1 s |
 | 录制器 | `1` / `2` / `3` / `4` | 选择/取消 CH1 / CH2 / CH3 / CH10（至少保留一个） |
-| 录制器 | `R` / `Enter` / `Space` | 开始/停止录音；停止后写 `/midi/MyMIDI/<PREFIX>_TAKE_xxxx.MID` |
+| 录制器 | `R` / `Enter` / `Space` | 开始/停止录音；停止后写 `/midi/MyMIDI/<PREFIX>_xxxx.MID` |
 | 录制器 | `Tab` | 回文件管理器；若正在录音会先停止并保存 |
 | 录制器 | `Backspace` | 回播放器；若正在录音会先停止并保存 |
 | 播放器/钢琴窗 | `;` / `.` | 音量 +5 / −5 |
@@ -206,6 +207,8 @@ Cardputer-Adv 的四个方向键直接按，不需要 `Fn`：
 ### 删除文件
 
 ![Delete confirm](../design/out/10-delete-confirm.png)
+
+![Rename](../design/out/11-rename.png)
 
 列表里选中 `.mid` / `.midi` 后按 `D`：
 

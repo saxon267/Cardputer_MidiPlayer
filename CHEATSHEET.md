@@ -1,4 +1,4 @@
-# Cardputer MIDI Player — v0.7.0 Cheat Sheet
+# Cardputer MIDI Player — v0.8.0 Cheat Sheet
 
 > M5Stack Cardputer-Adv · 240×135 · Gruvbox Dark · 一根 USB-C 本地播放；可选 USB-C Host 直连 M-VAVE FM-1 / Sloop。
 
@@ -7,7 +7,7 @@
 ## 1. 30 秒上手
 
 1. SD 卡格式 FAT32，把 `.mid` / `.midi` 放到 **`/midi/`**（没有该目录则扫描根目录）。
-2. 插卡、上电；用 `;` / `.` 选文件，`Enter` 播放。
+2. 插卡、上电直接进 PLAYER；按 `Backspace` 到 FILES，用 `;` / `.` 选文件，`Enter` 播放。
 3. `Space` 暂停/继续，`Backspace` 回文件管理器。
 4. `Tab` 在 PLAYER → PIANO → RECORDER → FILES 间循环；`[` / `]` 拖动进度。
 5. 音量先设 68–78；1 W 喇叭在更高音量可能失真。
@@ -44,8 +44,11 @@ USB-C Host：  dist/CardputerMidiPlayer-USBHost-8MB.bin
 | `,` / `Backspace` | 返回上级 |
 | `/` | 进入选中的目录 |
 | `D` | 删除选中的 `.mid`；`Enter` 确认，`Backspace` 取消 |
+| `N` | 重命名选中的 `.mid`；输入后 `Enter` 确认，`Backspace` 退格，`Tab` 取消 |
 
 ![Delete confirm](design/out/10-delete-confirm.png)
+
+![Rename](design/out/11-rename.png)
 
 ### 播放 / Player
 
@@ -129,11 +132,11 @@ PLAYER → PIANO → RECORDER → FILES → PLAYER
 
   | 通道 | 前缀 | 示例 |
   |---|---|---|
-  | CH1 | `LEAD` | `LEAD_TAKE_0001.MID` |
-  | CH2 | `PAD` | `PAD_TAKE_0001.MID` |
-  | CH3 | `BASS` | `BASS_TAKE_0001.MID` |
-  | CH10 | `DRUM` | `DRUM_TAKE_0001.MID` |
-  | 多通道 | 按下单顺序连接 | `LEAD_PAD_DRUM_TAKE_0001.MID` |
+  | CH1 | `LEAD` | `LEAD_0001.MID` |
+  | CH2 | `PAD` | `PAD_0001.MID` |
+  | CH3 | `BASS` | `BASS_0001.MID` |
+  | CH10 | `DRUM` | `DRUM_0001.MID` |
+  | 多通道 | 按下单顺序连接 | `LEAD_PAD_DRUM_0001.MID` |
 
 - Format 0、480 PPQ、单轨；当前 BPM 的 tempo；录 Note On/Off、CC64；
 - 最多 **6000 个事件**；满了自动停止并保存；
@@ -261,10 +264,10 @@ Host build **没有这个串口**；用屏幕和 `/usb.log`。
 
 ## 9. 版本与文件
 
-- **Release：** v0.4.0（v0.7.0 RECORDER 为 beta）
+- **Release：** v0.4.0（v0.8.0 RECORDER 为 beta）
 - **普通镜像：** `dist/CardputerMidiPlayer-8MB.bin`（0x0）
 - **Host 镜像：** `dist/CardputerMidiPlayer-USBHost-8MB.bin`（0x0）
-- **录音目录：** `/midi/MyMIDI/<PREFIX>_TAKE_xxxx.MID`
+- **录音目录：** `/midi/MyMIDI/<PREFIX>_xxxx.MID`
 - **校验：** `dist/SHA256SUMS.txt`
 - **仓库：** https://github.com/saxon267/Cardputer_MidiPlayer
 - **详细文档：** [firmware/README.md](firmware/README.md) · [可行性评估.md](可行性评估.md)

@@ -404,7 +404,23 @@ void UI::drawLibrary()
         rect(237, ty, 2, th, C_FAINT);
     }
 
-    hints("ENTER", "PLAY", "D", "DELETE", "BKSP", "UP");
+    hints("D", "DELETE", "N", "RENAME", "BKSP", "UP");
+
+    if (app.renaming && app.sel >= 0 && app.sel < library.count()) {
+        rect(8, 30, 224, 70, C_BAR);
+        frame(8, 30, 224, 70, C_AMB);
+        textC(SCR_W / 2, 35, "RENAME FILE", C_AMB, true, 1);
+        char oldn[26];
+        strncpy(oldn, library.at(app.sel).name, sizeof(oldn) - 1);
+        oldn[sizeof(oldn) - 1] = 0;
+        textC(SCR_W / 2, 47, oldn, C_FAINT, false, 1);
+
+        char nm[36];
+        snprintf(nm, sizeof(nm), "%s%s", app.renameBuf, app.renameExt);
+        textC(SCR_W / 2, 62, nm, C_TXT, true, 1);
+        textC(SCR_W / 2, 78, "ENTER OK", C_AMB, true, 1);
+        textC(SCR_W / 2, 89, "BKSP DEL   TAB NO", C_DIM, false, 1);
+    }
 
     if (app.confirmDelete && app.sel >= 0 && app.sel < library.count()) {
         rect(10, 38, 220, 58, C_BAR);

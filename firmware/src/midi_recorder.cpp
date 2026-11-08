@@ -168,7 +168,7 @@ bool MidiRecorder::save(char* outPath, size_t outLen)
     char path[64] = {0};
     int take = 0;
     for (int i = 1; i <= 9999; ++i) {
-        snprintf(path, sizeof(path), "/midi/MyMIDI/%s_TAKE_%04d.MID", prefix, i);
+        snprintf(path, sizeof(path), "/midi/MyMIDI/%s_%04d.MID", prefix, i);
         if (!SD.exists(path)) { take = i; break; }
     }
     if (take == 0) return false;

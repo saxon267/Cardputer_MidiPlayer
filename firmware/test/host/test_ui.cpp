@@ -106,6 +106,12 @@ int main()
     save("ui_delete.bmp");
     app.confirmDelete = false;
 
+    app.renaming = true;
+    strcpy(app.renameBuf, "MY SONG");
+    strcpy(app.renameExt, ".MID");
+    save("ui_rename.bmp");
+    app.renaming = false;
+
     // playing
     setPlaying();
     save("ui_player.bmp");

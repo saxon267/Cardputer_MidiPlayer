@@ -19,7 +19,7 @@ static bool take(const char* wantPrefix, uint8_t ch)
         return false;
     }
     char want[64];
-    snprintf(want, sizeof(want), "%s_TAKE_0001.MID", wantPrefix);
+    snprintf(want, sizeof(want), "%s_0001.MID", wantPrefix);
     if (!strstr(path, want)) {
         std::printf("FAIL prefix=%s got=%s\n", wantPrefix, path);
         return false;

@@ -15,6 +15,9 @@ struct App {
     bool     bpmFromFm1 = false;
     bool     loop       = false;
     bool     confirmDelete = false;
+    bool     renaming = false;
+    char     renameBuf[32] = {0};
+    char     renameExt[8] = ".MID";
     uint8_t  battery    = 80;
     bool     sdOk       = false;
     bool     usbHostOk  = false;
