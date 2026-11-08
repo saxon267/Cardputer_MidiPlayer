@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <M5Cardputer.h>
 #include <Preferences.h>
+#include <SD.h>
 #include <string.h>
 
 #include "app.h"
@@ -184,6 +185,17 @@ static void changeSpeed(float delta)
 }
 
 #if USB_MIDI_HOST
+#if USB_MIDI_HOST
+static void usbLog(const char* msg)
+{
+    if (!app.sdOk) return;
+    File f = SD.open("/usb.log", FILE_APPEND);
+    if (!f) return;
+    f.printf("[%lu] %s\n", (unsigned long)millis(), msg);
+    f.close();
+}
+#endif
+
 static void usbConnectCallback(bool connected, void*)
 {
     app.usbConnected = connected;
@@ -492,8 +504,25 @@ void loop()
 #if USB_MIDI_HOST
     app.usbDeviceSeen = usbMidi.deviceSeen();
     static bool lastUsb = false;
+    static bool lastSeen = false;
+    static bool hostLogged = false;
+    if (!hostLogged) {
+        hostLogged = true;
+        char b[80];
+        snprintf(b, sizeof(b), "host=%s", app.usbHostOk ? "ok" : "FAIL");
+        usbLog(b);
+    }
+    if (app.usbDeviceSeen != lastSeen) {
+        lastSeen = app.usbDeviceSeen;
+        char b[80];
+        snprintf(b, sizeof(b), "device seen=%d midi=%d vid=%04x pid=%04x ep=%02x",
+                 app.usbDeviceSeen ? 1 : 0, usbMidi.midiFound() ? 1 : 0,
+                 (unsigned)usbMidi.vid(), (unsigned)usbMidi.pid(), (unsigned)usbMidi.endpoint());
+        usbLog(b);
+    }
     if (app.usbConnected != lastUsb) {
         lastUsb = app.usbConnected;
+        usbLog(app.usbConnected ? "FM1 connected" : "FM1 disconnected");
         setToast(app.usbConnected ? "FM1 CONNECTED" : "FM1 DISCONNECTED");
     }
 #endif

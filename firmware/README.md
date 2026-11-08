@@ -76,7 +76,7 @@ pwsh tools/make_bin.ps1 -Env cardputer_midi_usb
 
 **限制：**
 
-- `cardputer_midi_usb` build **没有 USB-CDC 串口**；调试只能看屏幕。要串口日志请刷普通 `cardputer_midi`。
+- `cardputer_midi_usb` build **没有 USB-CDC 串口**；调试只能看屏幕。连接/断开时会把 Host 状态追加到 SD 卡根目录的 **`/usb.log`**（`host=ok/FAIL`、`device seen=... midi=... vid=... pid=... ep=...`），可以把 SD 卡拿到电脑上查看。
 - Host build 用 **64 帧音频块（1.45 ms）** 作为 MIDI 时钟；USB 发送在独立 `usb-midi` 任务里，UI 全屏刷新不会长时间挡住 MIDI。
 - **channel 10 现在保留在事件数组里**：普通 build 的本地钢琴仍跳过鼓，但 Host build 会把鼓音符原样发给 FM-1（Sloop `DR MAP=GM`）。
 - 当前 MIDI 消息：Note On/Off、CC64 延音、All Notes Off/All Sound Off；**不发 Program Change**、Pitch Bend、Clock。
