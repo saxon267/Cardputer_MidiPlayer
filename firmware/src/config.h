@@ -65,7 +65,7 @@ static constexpr int BOT_Y = SCR_H - BOT_H;
 #define C_GREEN   RGB565(184, 187, 38)   // #B8BB26
 
 #ifdef USB_MIDI_HOST
-#define APP_VERSION "0.3.0-usb"
+#define APP_VERSION "0.3.1-usb"
 #else
 #define APP_VERSION "0.2.1"
 #endif

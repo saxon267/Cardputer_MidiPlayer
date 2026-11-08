@@ -322,9 +322,12 @@ static void handleKeys()
     pLBr = lbr; pRBr = rbr; pTab = tab;
 
     // Speed: Fn + [ / ].  Plain [ / ] scrubs the song.
+#if !USB_MIDI_HOST
     if (ks.fn && eLBr) changeSpeed(-0.1f);
     else if (ks.fn && eRBr) changeSpeed(+0.1f);
-    else if (app.screen == Screen::PLAYER || app.screen == Screen::ROLL) {
+    else
+#endif
+    if ((app.screen == Screen::PLAYER || app.screen == Screen::ROLL) && !ks.fn) {
         if (eLBr) audio.seek(-1000000);
         if (eRBr) audio.seek(+1000000);
     }
@@ -515,15 +518,34 @@ void loop()
     if (app.usbDeviceSeen != lastSeen) {
         lastSeen = app.usbDeviceSeen;
         char b[80];
-        snprintf(b, sizeof(b), "device seen=%d midi=%d vid=%04x pid=%04x ep=%02x",
+        snprintf(b, sizeof(b), "device seen=%d midi=%d vid=%04x pid=%04x ep=%02x in=%02x",
                  app.usbDeviceSeen ? 1 : 0, usbMidi.midiFound() ? 1 : 0,
-                 (unsigned)usbMidi.vid(), (unsigned)usbMidi.pid(), (unsigned)usbMidi.endpoint());
+                 (unsigned)usbMidi.vid(), (unsigned)usbMidi.pid(),
+                 (unsigned)usbMidi.endpoint(), (unsigned)usbMidi.inputEndpoint());
         usbLog(b);
     }
     if (app.usbConnected != lastUsb) {
         lastUsb = app.usbConnected;
         usbLog(app.usbConnected ? "FM1 connected" : "FM1 disconnected");
         setToast(app.usbConnected ? "FM1 CONNECTED" : "FM1 DISCONNECTED");
+    }
+
+    // Follow FM-1's USB MIDI clock as the master tempo. With no clock, play
+    // the file at its own BPM (speed 1.0).
+    uint32_t srcX10 = app.info.bpmX10;
+    if (srcX10 < 100) srcX10 = 1200;
+    float fmBpm = usbMidi.bpm();
+    bool fromFm1 = app.usbConnected && fmBpm > 0.0f;
+    uint32_t targetX10 = fromFm1 ? (uint32_t)(fmBpm * 10.0f + 0.5f) : srcX10;
+    if (targetX10 < 100) targetX10 = srcX10;
+    audio.setSpeed((float)targetX10 / (float)srcX10);
+    app.bpmX10 = (uint16_t)targetX10;
+    app.bpmFromFm1 = fromFm1;
+
+    static bool lastFromFm1 = false;
+    if (fromFm1 != lastFromFm1) {
+        lastFromFm1 = fromFm1;
+        setToast(fromFm1 ? "FM1 BPM LOCK" : "BPM FREE");
     }
 #endif
     handleSerial();

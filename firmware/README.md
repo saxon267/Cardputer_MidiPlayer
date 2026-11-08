@@ -66,8 +66,20 @@ pwsh tools/make_bin.ps1 -Env cardputer_midi_usb
 
 - `GLO → MIDI`：CH1=1，CH2=2，CH3=3，CH4=10（鼓）；
 - `GLO → MIDI 2`：IN=NOTES，OTHER=SEL 或 OFF，OUT=KEYS，BEND 按需；
-- `SYNC=INT`（本固件目前不发 MIDI clock）；`DR MAP=GM`；
+- `SYNC=INT`；`GLO → MIDI 3 → CLOCK = OUT`（Cardputer 要跟随 FM-1 的 BPM，必须让 Sloop 从 USB 发 MIDI clock）；
+- `DR MAP=GM`；
 - 先选好 Sloop 的音色/鼓组；本固件**不发送 Program Change**，避免把 Sloop 音色切乱。
+
+**BPM 同步：**
+
+- Host build 接收 FM-1 USB MIDI OUT 上的 **F8 clock（24 PPQN）**，把 Cardputer 播放速度设成 `FM1 BPM / 文件 BPM`；FM-1 的 BPM 是主时钟。
+- 播放页/卷帘的 `F120` 表示锁定 FM-1 的 120 BPM；`B66` 表示没收到 clock，按文件自己的 66 BPM 播放。
+- Sloop 的 `CLOCK` 不是 OUT，或 `SYNC` 不是 INT 时，Cardputer 不会强行改速。
+- 原来的 `x1.0` 倍速键只对普通 build 有意义；Host build 由 FM-1 BPM 接管。
+
+**暂停/停止：**
+
+- 暂停、seek、stop、loop 边界都会发送**显式的 Note Off（按当前活动音符表）**，再补 CC64/CC123/CC120；不依赖 Sloop 是否实现 All Notes Off。
 
 **状态指示：**
 
@@ -76,10 +88,10 @@ pwsh tools/make_bin.ps1 -Env cardputer_midi_usb
 
 **限制：**
 
-- `cardputer_midi_usb` build **没有 USB-CDC 串口**；调试只能看屏幕。连接/断开时会把 Host 状态追加到 SD 卡根目录的 **`/usb.log`**（`host=ok/FAIL`、`device seen=... midi=... vid=... pid=... ep=...`），可以把 SD 卡拿到电脑上查看。
+- `cardputer_midi_usb` build **没有 USB-CDC 串口**；调试只能看屏幕。连接/断开时会把 Host 状态追加到 SD 卡根目录的 **`/usb.log`**（`host=ok/FAIL`、`device seen=... midi=... vid=... pid=... ep=... in=...`），可以把 SD 卡拿到电脑上查看。
 - Host build 用 **64 帧音频块（1.45 ms）** 作为 MIDI 时钟；USB 发送在独立 `usb-midi` 任务里，UI 全屏刷新不会长时间挡住 MIDI。
 - **channel 10 现在保留在事件数组里**：普通 build 的本地钢琴仍跳过鼓，但 Host build 会把鼓音符原样发给 FM-1（Sloop `DR MAP=GM`）。
-- 当前 MIDI 消息：Note On/Off、CC64 延音、All Notes Off/All Sound Off；**不发 Program Change**、Pitch Bend、Clock。
+- 当前 MIDI 消息：Note On/Off、CC64 延音、All Notes Off/All Sound Off；**不发 Program Change**、Pitch Bend；**接收** FM-1 的 MIDI clock。
 - FM-1 是 USB MIDI + USB Audio 复合设备；Host 只 claim MIDIStreaming，忽略 Audio。若其配置描述符超过 256 字节，Arduino Host 栈可能在枚举阶段失败，需要改 IDF 限制或换 Host 栈。
 - 只用 USB-C；没有 Grove/TRS 依赖。
 - 首次连接、供电、描述符兼容性仍需真机确认。

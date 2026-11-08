@@ -11,6 +11,8 @@ struct App {
     int      scroll     = 0;
     int      playIndex  = -1;
     uint8_t  volume     = 78;
+    uint16_t bpmX10     = 1200;
+    bool     bpmFromFm1 = false;
     bool     loop       = false;
     uint8_t  battery    = 80;
     bool     sdOk       = false;

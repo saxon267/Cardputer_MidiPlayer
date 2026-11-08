@@ -104,7 +104,7 @@ void AudioEngine::apply(const MidiEvent& e)
         case EV_OFF:     usbMidi.noteOff(e.pad, e.note);       break;
         case EV_SUS_ON:  usbMidi.controlChange(e.pad, 64, 127); break;
         case EV_SUS_OFF: usbMidi.controlChange(e.pad, 64, 0);   break;
-        case EV_ALL_OFF: usbMidi.controlChange(e.pad, 123, 0);  break;
+        case EV_ALL_OFF: usbMidi.allNotesOff(e.pad); break;
         default: break;
     }
 #endif

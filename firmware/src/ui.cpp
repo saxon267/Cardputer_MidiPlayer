@@ -488,7 +488,12 @@ void UI::drawPlayer()
     text(96, yb + 4, "LOOP", app.loop ? C_ACC : C_FAINT, false, 1);
 
     char spd[8];
+#if USB_MIDI_HOST
+    snprintf(spd, sizeof(spd), "%c%u", app.bpmFromFm1 ? 'F' : 'B',
+             (unsigned)(app.bpmX10 / 10));
+#else
     snprintf(spd, sizeof(spd), "x%.1f", audio.speed());
+#endif
     text(126, yb + 4, spd, C_AQUA, true, 1);
 
     text(154, yb + 4, "VOL", C_FAINT, false, 1);
@@ -680,7 +685,12 @@ void UI::drawRoll()
     textR(204, 113, bpm, C_DIM, false, 1);
 
     char spd[8];
+#if USB_MIDI_HOST
+    snprintf(spd, sizeof(spd), "%c%u", app.bpmFromFm1 ? 'F' : 'B',
+             (unsigned)(app.bpmX10 / 10));
+#else
     snprintf(spd, sizeof(spd), "x%.1f", audio.speed());
+#endif
     textR(234, 113, spd, C_AQUA, true, 1);
 
     textC(SCR_W / 2, 124, "[ ] SEEK   TAB PLAYER", C_DIM);

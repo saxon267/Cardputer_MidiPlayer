@@ -3,6 +3,8 @@
 #if USB_MIDI_HOST
 #include <Arduino.h>
 #include <esp_intr_alloc.h>
+#include <esp_timer.h>
+#include <string.h>
 #include <usb/usb_helpers.h>
 #include <usb/usb_host.h>
 
@@ -66,6 +68,52 @@ void UsbMidiHost::transferCb(usb_transfer_t* t)
     if (t && t->context) static_cast<UsbMidiHost*>(t->context)->_inFlight = false;
 }
 
+void UsbMidiHost::inputCb(usb_transfer_t* t)
+{
+    if (t && t->context) static_cast<UsbMidiHost*>(t->context)->handleInput(*t);
+}
+
+void UsbMidiHost::handleInput(usb_transfer_t& t)
+{
+    if (t.status == USB_TRANSFER_STATUS_COMPLETED) {
+        for (int off = 0; off + 3 < t.actual_num_bytes; off += 4) {
+            const uint8_t* p = t.data_buffer + off;
+            if (p[0] == 0 && p[1] == 0) continue;
+            if ((p[1] & 0xFF) == 0xF8) clockPulse();
+        }
+        if (_dev) usb_host_transfer_submit(&t);
+    } else if (t.status != USB_TRANSFER_STATUS_CANCELED && t.status != USB_TRANSFER_STATUS_NO_DEVICE) {
+        if (_dev) usb_host_transfer_submit(&t);
+    }
+}
+
+void UsbMidiHost::clockPulse()
+{
+    int64_t now = esp_timer_get_time();
+    if (_lastClockUs != 0) {
+        int64_t dt = now - _lastClockUs;
+        if (dt > 3000 && dt < 200000) {
+            uint32_t b = (uint32_t)(25000000ull / (uint32_t)dt);
+            if (!_clockValid) _bpmX10 = (uint16_t)b;
+            else              _bpmX10 = (uint16_t)((_bpmX10 * 3u + b) / 4u);
+            _clockValid = true;
+        }
+    }
+    _lastClockUs = now;
+}
+
+float UsbMidiHost::bpm() const
+{
+    if (!_clockValid) return 0.0f;
+    if (esp_timer_get_time() - _lastClockUs > 500000) return 0.0f;
+    return _bpmX10 / 10.0f;
+}
+
+bool UsbMidiHost::clockValid() const
+{
+    return _clockValid && (esp_timer_get_time() - _lastClockUs <= 500000);
+}
+
 void UsbMidiHost::poll()
 {
     if (!_client) return;
@@ -81,6 +129,9 @@ void UsbMidiHost::openDevice(uint8_t address)
     _seen = true;
     _midiFound = false;
     _head = _tail = 0;
+    _clockValid = false;
+    _lastClockUs = 0;
+    memset(_on, 0, sizeof(_on));
 
     const usb_device_desc_t* dd = nullptr;
     if (usb_host_get_device_descriptor(_dev, &dd) == ESP_OK && dd) {
@@ -102,6 +153,7 @@ void UsbMidiHost::parseConfig(const usb_config_desc_t* cfg)
     const uint8_t* p = cfg->val;
     const uint8_t* end = p + cfg->wTotalLength;
     bool inMidi = false;
+    bool claimed = false;
     uint8_t iface = 0, alt = 0;
 
     while (p + 2 <= end && p[0] >= 2 && p + p[0] <= end) {
@@ -118,27 +170,50 @@ void UsbMidiHost::parseConfig(const usb_config_desc_t* cfg)
             const bool isOut = (ep->bEndpointAddress & 0x80) == 0;
             const uint8_t type = ep->bmAttributes & USB_BM_ATTRIBUTES_XFERTYPE_MASK;
             const bool bulk = type == USB_BM_ATTRIBUTES_XFER_BULK || type == USB_BM_ATTRIBUTES_XFER_INT;
-            if (isOut && bulk && ep->wMaxPacketSize) {
-                if (usb_host_interface_claim(_client, _dev, iface, alt) == ESP_OK) {
-                    if (usb_host_transfer_alloc(ep->wMaxPacketSize, 0, &_out) == ESP_OK) {
-                        _iface = iface;
-                        _alt = alt;
-                        _ep = ep->bEndpointAddress;
-                        _pkt = ep->wMaxPacketSize > MAX_XFER ? MAX_XFER : ep->wMaxPacketSize;
-                        _out->device_handle = _dev;
-                        _out->bEndpointAddress = _ep;
-                        _out->callback = transferCb;
-                        _out->context = this;
-                        _midiFound = true;
-                        _connected = true;
-                        fire(true);
-                        return;
+            if (!bulk || !ep->wMaxPacketSize) { p += p[0]; continue; }
+
+            if (!claimed) {
+                if (usb_host_interface_claim(_client, _dev, iface, alt) != ESP_OK) {
+                    p += p[0];
+                    continue;
+                }
+                claimed = true;
+                _iface = iface;
+                _alt = alt;
+            }
+
+            if (isOut && !_out) {
+                if (usb_host_transfer_alloc(ep->wMaxPacketSize, 0, &_out) == ESP_OK) {
+                    _ep = ep->bEndpointAddress;
+                    _pkt = ep->wMaxPacketSize > MAX_XFER ? MAX_XFER : ep->wMaxPacketSize;
+                    _out->device_handle = _dev;
+                    _out->bEndpointAddress = _ep;
+                    _out->callback = transferCb;
+                    _out->context = this;
+                    _midiFound = true;
+                }
+            } else if (!isOut && !_in) {
+                if (usb_host_transfer_alloc(ep->wMaxPacketSize, 0, &_in) == ESP_OK) {
+                    _inEp = ep->bEndpointAddress;
+                    _inPkt = ep->wMaxPacketSize > MAX_XFER ? MAX_XFER : ep->wMaxPacketSize;
+                    _in->device_handle = _dev;
+                    _in->bEndpointAddress = _inEp;
+                    _in->callback = inputCb;
+                    _in->context = this;
+                    _in->num_bytes = _inPkt;
+                    if (usb_host_transfer_submit(_in) != ESP_OK) {
+                        usb_host_transfer_free(_in);
+                        _in = nullptr;
                     }
-                    usb_host_interface_release(_client, _dev, iface);
                 }
             }
         }
         p += p[0];
+    }
+
+    if (_out) {
+        _connected = true;
+        fire(true);
     }
 }
 
@@ -147,9 +222,14 @@ void UsbMidiHost::closeDevice()
     const bool was = _connected;
     _connected = false;
     _inFlight = false;
+    _clockValid = false;
     if (_out) {
         usb_host_transfer_free(_out);
         _out = nullptr;
+    }
+    if (_in) {
+        usb_host_transfer_free(_in);
+        _in = nullptr;
     }
     if (_dev) {
         if (_midiFound) usb_host_interface_release(_client, _dev, _iface);
@@ -158,7 +238,9 @@ void UsbMidiHost::closeDevice()
     }
     _midiFound = false;
     _ep = 0;
+    _inEp = 0;
     _head = _tail = 0;
+    memset(_on, 0, sizeof(_on));
     if (was) fire(false);
 }
 
@@ -210,12 +292,22 @@ void UsbMidiHost::send2(uint8_t cin, uint8_t status, uint8_t d1, uint8_t d2)
 
 void UsbMidiHost::noteOn(uint8_t ch, uint8_t note, uint8_t vel)
 {
-    send2(0x09, (uint8_t)(0x90 | (ch & 0x0F)), note & 0x7F, vel & 0x7F);
+    ch &= 0x0F;
+    note &= 0x7F;
+    if (vel == 0) {
+        noteOff(ch, note);
+        return;
+    }
+    _on[ch][note >> 5] |= (1u << (note & 31));
+    send2(0x09, (uint8_t)(0x90 | ch), note, vel & 0x7F);
 }
 
 void UsbMidiHost::noteOff(uint8_t ch, uint8_t note)
 {
-    send2(0x08, (uint8_t)(0x80 | (ch & 0x0F)), note & 0x7F, 0);
+    ch &= 0x0F;
+    note &= 0x7F;
+    _on[ch][note >> 5] &= ~(1u << (note & 31));
+    send2(0x08, (uint8_t)(0x80 | ch), note, 0);
 }
 
 void UsbMidiHost::controlChange(uint8_t ch, uint8_t cc, uint8_t value)
@@ -223,11 +315,21 @@ void UsbMidiHost::controlChange(uint8_t ch, uint8_t cc, uint8_t value)
     send2(0x0B, (uint8_t)(0xB0 | (ch & 0x0F)), cc & 0x7F, value & 0x7F);
 }
 
+void UsbMidiHost::allNotesOff(uint8_t ch)
+{
+    ch &= 0x0F;
+    for (int n = 0; n < 128; ++n) {
+        if (_on[ch][n >> 5] & (1u << (n & 31))) noteOff(ch, (uint8_t)n);
+    }
+    _on[ch][0] = _on[ch][1] = _on[ch][2] = _on[ch][3] = 0;
+    controlChange(ch, 123, 0);
+}
+
 void UsbMidiHost::panic()
 {
     for (uint8_t ch = 0; ch < 16; ++ch) {
+        allNotesOff(ch);
         controlChange(ch, 64, 0);
-        controlChange(ch, 123, 0);
         controlChange(ch, 120, 0);
     }
 }
