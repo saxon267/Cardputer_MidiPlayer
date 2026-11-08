@@ -1,4 +1,4 @@
-# Cardputer MIDI Player — v0.8.1 Cheat Sheet
+# Cardputer MIDI Player — v0.8.2 Cheat Sheet
 
 > M5Stack Cardputer-Adv · 240×135 · Gruvbox Dark · 一根 USB-C 本地播放；可选 USB-C Host 直连 M-VAVE FM-1 / Sloop。
 
@@ -264,7 +264,7 @@ Host build **没有这个串口**；用屏幕和 `/usb.log`。
 
 ## 9. 版本与文件
 
-- **Release：** v0.4.0（v0.8.1 RECORDER 为 beta）
+- **Release：** v0.4.0（v0.8.2 RECORDER 为 beta）
 - **普通镜像：** `dist/CardputerMidiPlayer-8MB.bin`（0x0）
 - **Host 镜像：** `dist/CardputerMidiPlayer-USBHost-8MB.bin`（0x0）
 - **录音目录：** `/midi/MyMIDI/<PREFIX>_xxxx.MID`

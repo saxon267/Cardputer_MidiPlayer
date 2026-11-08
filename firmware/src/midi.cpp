@@ -142,10 +142,17 @@ void addEvent(Ctx& c, uint32_t tick, uint8_t type, uint8_t note = 0, uint8_t vel
         } else {
             c.overflow = true;
         }
-    } else if (!c.countOnly && c.n >= (size_t)MAX_EVENTS) {
+    } else if (c.n >= (size_t)MAX_EVENTS) {
         c.overflow = true;
     }
     ++c.n;
+}
+
+void resetCtx(Ctx& c)
+{
+    memset(&c, 0, sizeof(c));
+    c.tsNum = 4;
+    c.tsDen = 4;
 }
 
 void addTempo(Ctx& c, uint32_t tick, uint32_t us)
@@ -283,8 +290,20 @@ bool parseFile(const char* path, Ctx& c, char* err, size_t errLen)
         uint32_t trackStart = r.pos;
         uint32_t tick     = 0;
         uint8_t  running  = 0;
+        uint32_t lastFeed = r.pos;
 
         while (r.pos < trackEnd) {
+            if (c.overflow) {
+                setErr(err, errLen, "TOO COMPLEX");
+                f.close();
+                return false;
+            }
+            // Keep the idle task (and task watchdog) alive while a large SD
+            // file is parsed. loadIndex runs on the Arduino loop task.
+            if (r.pos - lastFeed >= 16384) {
+                lastFeed = r.pos;
+                delay(1);
+            }
             uint32_t delta;
             // v0.5.0 recordings wrote the first tempo meta without a delta
             // byte. Accept that legacy shape so old takes remain playable.
@@ -501,7 +520,8 @@ void MidiFile::clear()
 
 bool MidiFile::probe(const char* path, MidiInfo& info)
 {
-    Ctx c;
+    static Ctx c;
+    resetCtx(c);
     c.countOnly = true;
     c.fill      = false;
 
@@ -527,7 +547,8 @@ bool MidiFile::load(const char* path, MidiInfo& info, char* err, size_t errLen)
 {
     clear();
 
-    Ctx c1;
+    static Ctx c1;
+    resetCtx(c1);
     c1.fill = false;
     if (!parseFile(path, c1, err, errLen)) return false;
     if (c1.overflow) {
@@ -553,7 +574,8 @@ bool MidiFile::load(const char* path, MidiInfo& info, char* err, size_t errLen)
         return false;
     }
 
-    Ctx c2;
+    static Ctx c2;
+    resetCtx(c2);
     c2.ev   = _ev;
     c2.cap  = c1.n;
     c2.fill = true;

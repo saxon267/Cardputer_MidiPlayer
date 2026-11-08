@@ -1,6 +1,6 @@
-# Cardputer MIDI Player — 固件 v0.8.1
+# Cardputer MIDI Player — 固件 v0.8.2
 
-Cardputer-Adv 上的 SD 卡 MIDI 播放器。v0.8.1 在 v0.4.0 的播放器、钢琴卷帘、倍速之上，为 USB-C Host build 增加 **RECORDER 标签页**：录 FM-1 自己的键盘/sequencer，按 CH1/2/3/10 选择通道，实时钢琴卷帘，停止后写入 `/midi/MyMIDI/<PREFIX>_xxxx.MID`。
+Cardputer-Adv 上的 SD 卡 MIDI 播放器。v0.8.2 在 v0.4.0 的播放器、钢琴卷帘、倍速之上，为 USB-C Host build 增加 **RECORDER 标签页**：录 FM-1 自己的键盘/sequencer，按 CH1/2/3/10 选择通道，实时钢琴卷帘，停止后写入 `/midi/MyMIDI/<PREFIX>_xxxx.MID`。
 
 > 状态：普通 `cardputer_midi` build 已在实体 Cardputer-Adv 上验证启动/播放/CPU/无欠载；USB-C Host 与 RECORDER 为实验功能，需真机复测。  
 > 速查表：[`../CHEATSHEET.md`](../CHEATSHEET.md) · 发布说明：[`../RELEASE_NOTES.md`](../RELEASE_NOTES.md)
@@ -109,7 +109,7 @@ Sloop 2.7 的 **`ARP 2 → HOLD`** 在 `ARP MODE = OFF` 时会把收到的 MIDI 
 - 只用 USB-C；没有 Grove/TRS 依赖。
 - 首次连接、供电、描述符兼容性仍需真机确认。
 
-### RECORDER（Host build，v0.8.1）
+### RECORDER（Host build，v0.8.2）
 
 ![RECORDER](../design/out/09-midi-input.png)
 
