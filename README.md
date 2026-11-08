@@ -15,7 +15,7 @@
 | 音频 | ES8311 单声道 + NS4150B 1 W；3.5 mm 单声道耳机 |
 | 屏幕 | 240×135 IPS，1.14" |
 | v0.2.1 固件 | SMF Format 0/1 + 24 声部 / 2 泛音合成钢琴 + 44.1 kHz 直连 I2S |
-| USB-C Host（实验） | 一根 USB-C 直连 FM-1 Sloop，发 Note/CC，连接时静音本机喇叭；单独 build `cardputer_midi_usb` |
+| USB-C Host（实验） | 一根 USB-C 直连 FM-1 Sloop，发 Note/CC；暂停显式 Note Off；BPM 跟随 FM-1 MIDI clock；连接时静音本机喇叭 |
 | Phase 2 | 4 MB Flash 多采样钢琴（18 区 / 22.05 kHz / 16-bit） |
 | 工作量 | 合成版 MVP 60–90 h；采样版 110–160 h |
 | 音质 | 便携琴级别，不是钢琴；耳机明显更好 |
