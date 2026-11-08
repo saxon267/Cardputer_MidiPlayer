@@ -504,6 +504,7 @@ void setup()
 void loop()
 {
     M5Cardputer.update();
+    uint32_t now = millis();
 #if USB_MIDI_HOST
     app.usbDeviceSeen = usbMidi.deviceSeen();
     static bool lastUsb = false;
@@ -547,13 +548,22 @@ void loop()
         lastFromFm1 = fromFm1;
         setToast(fromFm1 ? "FM1 BPM LOCK" : "BPM FREE");
     }
+
+    static uint32_t lastBpmLog = 0;
+    if (app.usbConnected && now - lastBpmLog > 5000) {
+        lastBpmLog = now;
+        char b[96];
+        snprintf(b, sizeof(b), "bpm=%s%u in=%02x clock=%d",
+                 fromFm1 ? "F" : "B", (unsigned)(app.bpmX10 / 10),
+                 (unsigned)usbMidi.inputEndpoint(), usbMidi.clockValid() ? 1 : 0);
+        usbLog(b);
+    }
 #endif
     handleSerial();
     handleKeys();
 
     static uint32_t lastRender = 0;
     static uint32_t lastBat    = 0;
-    uint32_t now = millis();
 
     if (now - lastBat > 10000) {
         lastBat = now;
