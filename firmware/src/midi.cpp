@@ -303,7 +303,7 @@ bool parseFile(const char* path, Ctx& c, char* err, size_t errLen)
             }
 
             if (status == 0xFF) {
-                running = 0;
+                // In SMF, meta events do not cancel running status.
                 int type = r.get();
                 if (type < 0) {
                     setErr(err, errLen, "BAD META");
