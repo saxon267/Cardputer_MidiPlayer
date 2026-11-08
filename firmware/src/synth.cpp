@@ -50,9 +50,9 @@ void Piano::noteOn(uint8_t note, uint8_t vel, uint8_t ch)
     if (tauScale < 0.45f) tauScale = 0.45f;
     if (tauScale > 3.0f) tauScale = 3.0f;
 
-    const float ratio[P] = {1.0f, 2.001f, 3.006f};
-    const float amps[P]  = {1.0f, 0.42f, 0.18f};
-    const float taus[P]  = {3.0f, 1.9f, 1.2f};
+    const float ratio[3] = {1.0f, 2.001f, 3.006f};
+    const float amps[3]  = {1.0f, 0.42f, 0.18f};
+    const float taus[3]  = {3.0f, 1.9f, 1.2f};
 
     for (int k = 0; k < P; ++k) {
         v.phase[k] = 0;

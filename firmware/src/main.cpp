@@ -148,6 +148,67 @@ static void backToLibrary()
     adjustScroll();
 }
 
+static void printStatus()
+{
+    Serial.printf("[midi] dbg screen=%d sel=%d play=%d pause=%d end=%d pos=%u/%u cpu=%u ur=%u vol=%u heap=%u\n",
+                  (int)app.screen, app.sel, audio.playing() ? 1 : 0, audio.paused() ? 1 : 0,
+                  audio.ended() ? 1 : 0, (unsigned)audio.positionUs(),
+                  (unsigned)audio.durationUs(), (unsigned)audio.cpuPct(),
+                  (unsigned)audio.underruns(), (unsigned)app.volume,
+                  (unsigned)ESP.getFreeHeap());
+}
+
+// Small USB-CDC debug console. Handy when the keyboard is not reachable.
+//   p / space  play (library) or pause/resume (player)
+//   n          next file
+//   b          back to library
+//   + / -      volume up/down
+//   l          loop
+//   i          status
+static void handleSerial()
+{
+    while (Serial.available()) {
+        int ci = Serial.read();
+        if (ci < 0) break;
+        char c = (char)ci;
+        if (c == '\r' || c == '\n') continue;
+
+        if (c == 'p' || c == 'P' || c == ' ') {
+            if (app.screen == Screen::LIBRARY) {
+                loadIndex(app.sel);
+            } else if (app.screen == Screen::PLAYER) {
+                if (audio.ended()) audio.play();
+                else               audio.togglePause();
+            }
+            printStatus();
+        } else if (c == 'n' || c == 'N') {
+            nextTrack(+1);
+        } else if (c == 'b' || c == 'B') {
+            backToLibrary();
+            printStatus();
+        } else if (c == '+' || c == '=') {
+            if (app.volume <= 95) app.volume += 5;
+            audio.setVolume(app.volume);
+            prefs.putUChar("vol", app.volume);
+            printStatus();
+        } else if (c == '-') {
+            if (app.volume >= 5) app.volume -= 5;
+            audio.setVolume(app.volume);
+            prefs.putUChar("vol", app.volume);
+            printStatus();
+        } else if (c == 'l' || c == 'L') {
+            app.loop = !app.loop;
+            audio.setLoop(app.loop);
+            prefs.putBool("loop", app.loop);
+            printStatus();
+        } else if (c == 'i' || c == 'I') {
+            printStatus();
+        } else if (c == 'h' || c == 'H' || c == '?') {
+            Serial.println("[midi] keys: p=play/pause n=next b=back +/-=vol l=loop i=info");
+        }
+    }
+}
+
 static void handleKeys()
 {
     auto& ks = M5Cardputer.Keyboard.keysState();
@@ -282,6 +343,11 @@ void setup()
     }
     Serial.printf("[midi] sd=%d files=%d heap=%u\n", app.sdOk ? 1 : 0, library.count(),
                   (unsigned)ESP.getFreeHeap());
+    for (int i = 0; i < library.count() && i < 12; ++i) {
+        const FileEntry& e = library.at(i);
+        Serial.printf("[midi] file %d %c %s %u bytes\n", i, e.dir ? 'D' : 'F', e.name,
+                      (unsigned)e.size);
+    }
 
     ui.boot(55, library.count());
     delay(180);
@@ -313,11 +379,13 @@ void setup()
 
     Serial.printf("[midi] ready: sd=%d files=%d heap=%u\n", app.sdOk ? 1 : 0,
                   library.count(), (unsigned)ESP.getFreeHeap());
+    Serial.println("[midi] serial keys: p=play/pause n=next b=back +/-=vol l=loop i=info");
 }
 
 void loop()
 {
     M5Cardputer.update();
+    handleSerial();
     handleKeys();
 
     static uint32_t lastRender = 0;
