@@ -666,7 +666,7 @@ void UI::drawRoll()
     snprintf(tm, sizeof(tm), "%s / %s", a, b);
     text(6, 113, tm, C_TXT, true, 1);
 
-    if (app.loop) textR(164, 113, "LOOP", C_AMB, true, 1);
+    if (app.loop) textR(136, 113, "LOOP", C_AMB, true, 1);
 
     char bpm[16];
     snprintf(bpm, sizeof(bpm), "%u BPM", (unsigned)(app.info.bpmX10 / 10));

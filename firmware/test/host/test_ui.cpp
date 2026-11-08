@@ -109,6 +109,7 @@ int main()
     // piano roll
     setPlaying();
     app.screen = Screen::ROLL;
+    app.loop = true;
     audio._posUs = 72000000;
     audio._voices = 6;
     save("ui_roll.bmp");
