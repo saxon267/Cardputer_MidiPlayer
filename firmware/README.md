@@ -79,7 +79,9 @@ pwsh tools/make_bin.ps1 -Env cardputer_midi_usb
 
 **暂停/停止：**
 
-- 暂停、seek、stop、loop 边界都会发送**显式的 Note Off（按当前活动音符表）**，再补 CC64/CC123/CC120；不依赖 Sloop 是否实现 All Notes Off。
+- 暂停、seek、stop、loop 边界都会发送**显式的 Note Off（按当前活动音符表）**，再补 CC64/CC121/CC123/CC120；不依赖 Sloop 是否实现 All Notes Off。
+- panic 请求现在由**音频任务在下一个块边界执行**，避免主线程暂停与音频线程“刚排队的 Note On”发生竞态；否则会出现“先关音、后收到 Note On”的挂音。
+- `/usb.log` 会记录 `pause=1 panicNotes=... active=...`，便于判断活动表里是否真的有音符。
 
 **状态指示：**
 

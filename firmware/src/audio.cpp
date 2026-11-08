@@ -121,9 +121,6 @@ void AudioEngine::apply(const MidiEvent& e)
 
 void AudioEngine::resetPlayback()
 {
-#if USB_MIDI_HOST
-    usbMidi.panic();
-#endif
     _idx    = 0;
     _posUs  = 0;
     _ended  = false;
@@ -169,6 +166,16 @@ void AudioEngine::taskLoop()
             handleSeek();
             _seekReq = false;
         }
+#if USB_MIDI_HOST
+        if (_panicReq) {
+            _panicReq = false;
+            usbMidi.panic();
+        }
+        if (_resyncReq) {
+            _resyncReq = false;
+            resyncMidi();
+        }
+#endif
 
         uint32_t t0 = micros();
         bool active = _playing && !_paused;
@@ -212,6 +219,7 @@ void AudioEngine::taskLoop()
                 if (_idx >= _count && _posUs >= _durationUs + 400000u) {
                     if (_loop) {
                         resetPlayback();
+                        _panicReq = true;
                     } else {
                         _ended   = true;
                         _playing = false;
@@ -263,6 +271,7 @@ void AudioEngine::setSong(const MidiEvent* events, size_t count, uint32_t durati
     _events   = events;
     _count    = count;
     _durationUs = durationUs;
+    _panicReq = true;
     resetPlayback();
 }
 
@@ -273,13 +282,17 @@ void AudioEngine::clearSong()
     _events  = nullptr;
     _count   = 0;
     _durationUs = 0;
+    _panicReq = true;
     resetPlayback();
 }
 
 void AudioEngine::play()
 {
     if (!_events || _count == 0) return;
-    if (_ended) resetPlayback();
+    if (_ended) {
+        resetPlayback();
+        _panicReq = true;
+    }
     _playing = true;
     _paused  = false;
 }
@@ -289,8 +302,8 @@ void AudioEngine::togglePause()
     if (!_playing || _ended) return;
     _paused = !_paused;
 #if USB_MIDI_HOST
-    if (_paused) usbMidi.panic();
-    else         resyncMidi();
+    if (_paused) _panicReq = true;
+    else         _resyncReq = true;
 #endif
 }
 
@@ -329,6 +342,7 @@ void AudioEngine::stop()
     _playing = false;
     _paused  = false;
     _ended   = false;
+    _panicReq = true;
     resetPlayback();
 }
 

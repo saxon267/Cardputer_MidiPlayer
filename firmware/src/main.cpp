@@ -202,8 +202,8 @@ static void usbConnectCallback(bool connected, void*)
     audio.setMuted(connected);
 #if USB_MIDI_HOST
     if (connected) {
-        usbMidi.panic();
-        audio.resyncMidi();
+        audio.requestPanic();
+        audio.requestResync();
     }
 #endif
 }

@@ -20,8 +20,10 @@ public:
     void setSpeed(float s);
     void setMuted(bool on) { _muted = on; }
     bool muted() const { return _muted; }
+    void requestPanic() { _panicReq = true; }
 #if USB_MIDI_HOST
     void resyncMidi();
+    void requestResync() { _resyncReq = true; }
 #endif
     float speed() const { return _speedX1000 / 1000.0f; }
 
@@ -67,6 +69,8 @@ private:
     float                     _fade     = 0.0f;
     volatile bool             _sustainOn = false;
     volatile bool             _muted    = false;
+    volatile bool             _panicReq = false;
+    volatile bool             _resyncReq = false;
     volatile uint8_t          _voices    = 0;
     volatile uint32_t         _active[4] = {0, 0, 0, 0};
     bool                      _codecOk  = false;
