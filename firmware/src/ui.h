@@ -47,6 +47,7 @@ private:
     void drawLibrary();
     void drawPlayer();
     void drawRoll();
+    void drawInput();
     void drawNoFiles();
     void drawNoSd();
 

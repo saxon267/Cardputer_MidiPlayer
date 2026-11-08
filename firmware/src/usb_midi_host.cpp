@@ -79,7 +79,11 @@ void UsbMidiHost::handleInput(usb_transfer_t& t)
         for (int off = 0; off + 3 < t.actual_num_bytes; off += 4) {
             const uint8_t* p = t.data_buffer + off;
             if (p[0] == 0 && p[1] == 0) continue;
-            if ((p[1] & 0xFF) == 0xF8) clockPulse();
+            if (p[1] == 0xF8) {
+                clockPulse();
+            } else if (p[1] >= 0x80 && p[1] < 0xF0 && _inCb) {
+                _inCb(p[1], p[2], p[3], _inCtx);
+            }
         }
         if (_dev) usb_host_transfer_submit(&t);
     } else if (t.status != USB_TRANSFER_STATUS_CANCELED && t.status != USB_TRANSFER_STATUS_NO_DEVICE) {

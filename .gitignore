@@ -24,3 +24,4 @@ desktop.ini
 # host UI test output
 firmware/ui_*.bmp
 firmware/ui_*.png
+firmware/test_out/

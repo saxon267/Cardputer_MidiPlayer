@@ -11,6 +11,7 @@
 #include "ui.h"
 #if USB_MIDI_HOST
 #include "usb_midi_host.h"
+#include "midi_recorder.h"
 #endif
 
 App  app;
@@ -185,6 +186,23 @@ static void changeSpeed(float delta)
 }
 
 #if USB_MIDI_HOST
+static void saveTake()
+{
+    char path[64] = {0};
+    if (rec.save(path, sizeof(path))) setToast(path);
+    else                               setToast("SAVE FAILED");
+}
+
+static void stopTake()
+{
+    if (rec.recording()) {
+        rec.stopRecording();
+        saveTake();
+    }
+}
+#endif
+
+#if USB_MIDI_HOST
 #if USB_MIDI_HOST
 static void usbLog(const char* msg)
 {
@@ -282,6 +300,7 @@ static void handleKeys()
     static bool pComma = false, pDot = false, pL = false;
     static bool pMinus = false, pPlus = false;
     static bool pLBr = false, pRBr = false, pTab = false;
+    static bool pR = false, p1 = false, p2 = false, p3 = false, p4 = false, p0 = false;
 
     bool enter = ks.enter;
     bool space = ks.space;
@@ -298,6 +317,12 @@ static void handleKeys()
     bool lbr   = M5Cardputer.Keyboard.isKeyPressed('[');
     bool rbr   = M5Cardputer.Keyboard.isKeyPressed(']');
     bool tab   = ks.tab;
+    bool rkey  = !ks.fn && M5Cardputer.Keyboard.isKeyPressed('r');
+    bool d1    = !ks.fn && M5Cardputer.Keyboard.isKeyPressed('1');
+    bool d2    = !ks.fn && M5Cardputer.Keyboard.isKeyPressed('2');
+    bool d3    = !ks.fn && M5Cardputer.Keyboard.isKeyPressed('3');
+    bool d4    = !ks.fn && M5Cardputer.Keyboard.isKeyPressed('4');
+    bool d0    = !ks.fn && M5Cardputer.Keyboard.isKeyPressed('0');
 
     bool eEnter = enter && !pEnter;
     bool eSpace = space && !pSpace;
@@ -314,12 +339,19 @@ static void handleKeys()
     bool eLBr  = lbr && !pLBr;
     bool eRBr  = rbr && !pRBr;
     bool eTab  = tab && !pTab;
+    bool eR    = rkey && !pR;
+    bool e1    = d1 && !p1;
+    bool e2    = d2 && !p2;
+    bool e3    = d3 && !p3;
+    bool e4    = d4 && !p4;
+    bool e0    = d0 && !p0;
 
     pEnter = enter; pSpace = space; pDel = del;
     pUp = up; pDown = down; pLeft = left; pRight = right;
     pComma = comma; pDot = dot; pL = lkey;
     pMinus = minus; pPlus = plus;
     pLBr = lbr; pRBr = rbr; pTab = tab;
+    pR = rkey; p1 = d1; p2 = d2; p3 = d3; p4 = d4; p0 = d0;
 
     // Speed: Fn + [ / ].  Plain [ / ] scrubs the song.
 #if !USB_MIDI_HOST
@@ -332,9 +364,23 @@ static void handleKeys()
         if (eRBr) audio.seek(+1000000);
     }
 
+#if USB_MIDI_HOST
+    if (eTab) {
+        if (app.screen == Screen::PLAYER) {
+            app.screen = Screen::ROLL;
+        } else if (app.screen == Screen::ROLL) {
+            app.screen = Screen::MIDI_IN;
+            if (!rec.recording()) rec.beginPreview();
+        } else if (app.screen == Screen::MIDI_IN) {
+            stopTake();
+            app.screen = Screen::PLAYER;
+        }
+    }
+#else
     if (eTab && (app.screen == Screen::PLAYER || app.screen == Screen::ROLL)) {
         app.screen = (app.screen == Screen::PLAYER) ? Screen::ROLL : Screen::PLAYER;
     }
+#endif
 
     if (eMinus && app.volume >= 10) {
         app.volume -= 10;
@@ -410,6 +456,28 @@ static void handleKeys()
             audio.setLoop(app.loop);
             prefs.putBool("loop", app.loop);
         }
+#if USB_MIDI_HOST
+    } else if (app.screen == Screen::MIDI_IN) {
+        if (eDel) {
+            stopTake();
+            app.screen = Screen::PLAYER;
+        }
+        if (eR || eEnter || eSpace) {
+            if (rec.recording()) {
+                stopTake();
+            } else if (app.usbConnected) {
+                rec.startRecording(app.bpmX10);
+            } else {
+                setToast("CONNECT FM1");
+            }
+        }
+        if (!rec.recording()) {
+            if (e1) rec.toggleChannel(0);
+            if (e2) rec.toggleChannel(1);
+            if (e3) rec.toggleChannel(2);
+            if (e4 || e0) rec.toggleChannel(9);
+        }
+#endif
     } else if (app.screen == Screen::NO_SD) {
         if (eEnter || eDel) retrySd();
     } else if (app.screen == Screen::NO_FILES) {
@@ -451,6 +519,9 @@ void setup()
 
 #if USB_MIDI_HOST
     usbMidi.setConnectCallback(usbConnectCallback, nullptr);
+    usbMidi.setInputCallback([](uint8_t s, uint8_t d1, uint8_t d2, void*) {
+        rec.add(s, d1, d2);
+    }, nullptr);
     app.usbHostOk = usbMidi.begin();
     if (!app.usbHostOk) setToast("USB HOST FAIL");
 #endif
@@ -567,6 +638,17 @@ void loop()
                  lastPaused ? 1 : 0, (unsigned)usbMidi.lastPanicNotes(),
                  (unsigned)usbMidi.activeNotes());
         usbLog(b);
+    }
+
+    static bool fullSaved = false;
+    if (rec.fullTake()) {
+        if (!fullSaved) {
+            fullSaved = true;
+            rec.stopRecording();
+            saveTake();
+        }
+    } else {
+        fullSaved = false;
     }
 #endif
     handleSerial();

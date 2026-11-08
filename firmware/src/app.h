@@ -3,7 +3,7 @@
 #include "library.h"
 #include "midi.h"
 
-enum class Screen : uint8_t { BOOT, LIBRARY, PLAYER, ROLL, NO_SD, NO_FILES };
+enum class Screen : uint8_t { BOOT, LIBRARY, PLAYER, ROLL, MIDI_IN, NO_SD, NO_FILES };
 
 struct App {
     Screen   screen     = Screen::BOOT;

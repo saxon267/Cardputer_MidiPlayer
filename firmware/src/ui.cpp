@@ -7,6 +7,9 @@
 
 #include "audio.h"
 #include "font8.h"
+#if USB_MIDI_HOST
+#include "midi_recorder.h"
+#endif
 
 UI ui;
 
@@ -696,6 +699,204 @@ void UI::drawRoll()
     textC(SCR_W / 2, 124, "[ ] SEEK   TAB PLAYER", C_DIM);
 }
 
+void UI::drawInput()
+{
+    topbar("INPUT");
+
+#if USB_MIDI_HOST
+    const int RX = 18;
+    const int RY = 28;
+    const int RW = SCR_W - RX;
+    const int RH = 72;
+    const int ROWS = 36;
+
+    // Channel selector: CH1 / CH2 / CH3 / CH10 (0 = CH10).
+    auto chip = [&](int x, const char* label, uint8_t ch) {
+        bool on = rec.channelOn(ch);
+        if (on) {
+            rect(x, 15, 48, 11, C_ACC);
+            text(x + 7, 17, label, C_BG, true, 1);
+        } else {
+            frame(x, 15, 48, 11, C_EDGE);
+            text(x + 7, 17, label, C_DIM, false, 1);
+        }
+    };
+    chip(4, "CH1", 0);
+    chip(58, "CH2", 1);
+    chip(112, "CH3", 2);
+    chip(166, "CH10", 9);
+
+    if (!app.usbConnected) {
+        textC(SCR_W / 2, 55, "CONNECT FM1 USB", C_AMB, true, 1);
+        textC(SCR_W / 2, 68, "HOST BUILD + USB-C CABLE", C_FAINT, false, 1);
+        hline(0, 100, SCR_W, C_LINE);
+        rect(0, 101, SCR_W, 34, C_BAR);
+        textC(SCR_W / 2, 124, "TAB NEXT   BKSP BACK", C_DIM);
+        return;
+    }
+
+    uint32_t t1 = rec.active() ? rec.elapsedUs() : rec.durationUs();
+    if (t1 < 1000) t1 = 1000;
+    int32_t t0 = (int32_t)t1 - 8000000;
+    if (t0 < 0) t0 = 0;
+    if (t1 <= (uint32_t)t0) t1 = t0 + 1000;
+
+    auto mapX = [&](int32_t t) -> int {
+        int x = RX + (int)((int64_t)(t - t0) * RW / ((int32_t)t1 - t0));
+        if (x < RX) x = RX;
+        if (x > SCR_W - 1) x = SCR_W - 1;
+        return x;
+    };
+
+    // Visible note range.
+    memset(_rollStart, 0xFF, sizeof(_rollStart));
+    int minN = 127, maxN = 0;
+    bool any = false;
+    const RecEvent* ev = rec.events();
+    int n = rec.count();
+    for (int i = 0; i < n; ++i) {
+        const RecEvent& e = ev[i];
+        if (!rec.channelOn(e.ch)) continue;
+        if (e.t > (uint32_t)t1) break;
+        if (e.type == REC_ON) {
+            _rollStart[e.ch][e.note] = (int32_t)e.t;
+        } else if (e.type == REC_OFF) {
+            int32_t s = _rollStart[e.ch][e.note];
+            if (s >= 0) {
+                if ((int32_t)e.t >= t0) {
+                    if (e.note < minN) minN = e.note;
+                    if (e.note > maxN) maxN = e.note;
+                    any = true;
+                }
+                _rollStart[e.ch][e.note] = -1;
+            }
+        }
+    }
+    for (int ch = 0; ch < 16; ++ch)
+        for (int note = 0; note < 128; ++note)
+            if (_rollStart[ch][note] >= 0) {
+                if (note < minN) minN = note;
+                if (note > maxN) maxN = note;
+                any = true;
+            }
+
+    int target = 48;
+    if (any) {
+        target = (minN + maxN) / 2 - ROWS / 2;
+        if (target < 0) target = 0;
+        if (target > 127 - ROWS) target = 127 - ROWS;
+    }
+    int d = target - _rollBase;
+    if (d > 4) d = 4;
+    if (d < -4) d = -4;
+    _rollBase += d;
+
+    // Background + keyboard.
+    rect(0, RY, RX, RH, C_PANEL);
+    rect(RX, RY, RW, RH, C_BG);
+    for (int row = 0; row < ROWS; ++row) {
+        int note = _rollBase + ROWS - 1 - row;
+        int y = RY + row * 2;
+        int pc = note % 12;
+        bool black = (pc == 1 || pc == 3 || pc == 6 || pc == 8 || pc == 10);
+        if (black) rect(RX, y, RW, 2, C_BAR);
+        if (pc == 0) hline(RX, y + 1, RW, C_LINE);
+        if (black) {
+            rect(0, y, 11, 2, C_BG);
+            rect(11, y, RX - 11, 2, C_LT2);
+        } else {
+            rect(0, y, RX, 2, C_LT2);
+            hline(0, y + 1, RX, C_EDGE);
+        }
+    }
+
+    // One-second grid, 4-second bars.
+    int32_t first = (t0 / 1000000) * 1000000;
+    if (first < t0) first += 1000000;
+    for (int32_t t = first; t < (int32_t)t1; t += 1000000) {
+        int x = mapX(t);
+        vline(x, RY, RH, (t % 4000000) == 0 ? C_EDGE : C_LINE);
+    }
+
+    // Notes.
+    memset(_rollStart, 0xFF, sizeof(_rollStart));
+    auto drawNote = [&](int32_t s, int32_t e, uint8_t note, uint8_t ch) {
+        if (e <= t0 || s >= (int32_t)t1) return;
+        int32_t a = s < t0 ? t0 : s;
+        int32_t b = e > (int32_t)t1 ? (int32_t)t1 : e;
+        if (b <= a) return;
+        int x0 = mapX(a);
+        int x1 = mapX(b);
+        if (x1 - x0 < 2) x1 = x0 + 2;
+        if (x1 > SCR_W) x1 = SCR_W;
+        if (x0 >= SCR_W) return;
+        int row = _rollBase + ROWS - 1 - note;
+        if (row < 0 || row >= ROWS) return;
+        int y = RY + row * 2;
+        uint16_t col = (ch == 0) ? C_ACC : (ch == 1) ? C_AQUA : (ch == 2) ? C_AMB : C_BLUE;
+        rect(x0, y, x1 - x0, 2, col);
+    };
+
+    for (int i = 0; i < n; ++i) {
+        const RecEvent& e = ev[i];
+        if (!rec.channelOn(e.ch)) continue;
+        if (e.t > t1) break;
+        if (e.type == REC_ON) {
+            _rollStart[e.ch][e.note] = (int32_t)e.t;
+        } else if (e.type == REC_OFF) {
+            int32_t s = _rollStart[e.ch][e.note];
+            if (s >= 0) {
+                drawNote(s, (int32_t)e.t, e.note, e.ch);
+                _rollStart[e.ch][e.note] = -1;
+            }
+        }
+    }
+    for (int ch = 0; ch < 16; ++ch)
+        for (int note = 0; note < 128; ++note)
+            if (_rollStart[ch][note] >= 0)
+                drawNote(_rollStart[ch][note], (int32_t)t1, (uint8_t)note, (uint8_t)ch);
+
+    // Playhead.
+    int px = SCR_W - 3;
+    vline(px, RY, RH, C_TXT);
+    _c.fillTriangle(px - 2, RY, px + 2, RY, px, RY + 4, C_ACC);
+
+    if (n == 0 && !rec.recording()) {
+        textC(SCR_W / 2, 58, "PRESS R TO RECORD", C_FAINT, false, 1);
+    }
+
+    // Status.
+    hline(0, 100, SCR_W, C_LINE);
+    rect(0, 101, SCR_W, 34, C_BAR);
+
+    char tm[16];
+    fmtTime(tm, sizeof(tm), t1 / 1000000u);
+    if (rec.recording()) {
+        text(6, 103, "REC", C_RED, true, 1);
+    } else if (rec.active()) {
+        text(6, 103, "IN", C_AQUA, true, 1);
+    } else {
+        text(6, 103, "TAKE", C_DIM, false, 1);
+    }
+    text(42, 103, tm, C_TXT, false, 1);
+
+    char evn[16];
+    snprintf(evn, sizeof(evn), "EV %d", n);
+    text(100, 103, evn, C_DIM, false, 1);
+
+    char bpm[16];
+    snprintf(bpm, sizeof(bpm), "%u BPM", (unsigned)(rec.bpmX10() / 10));
+    textR(234, 103, bpm, C_DIM, false, 1);
+
+    textC(SCR_W / 2, 124, "R REC/STOP  TAB NEXT  1/2/3/4 CH", C_DIM);
+#else
+    textC(SCR_W / 2, 55, "USB HOST BUILD ONLY", C_FAINT, true, 1);
+    hline(0, 100, SCR_W, C_LINE);
+    rect(0, 101, SCR_W, 34, C_BAR);
+    textC(SCR_W / 2, 124, "TAB NEXT", C_DIM);
+#endif
+}
+
 void UI::drawNoFiles()
 {
     topbar("LIBRARY");
@@ -782,6 +983,7 @@ void UI::render()
         case Screen::LIBRARY:  drawLibrary(); break;
         case Screen::PLAYER:   drawPlayer();  break;
         case Screen::ROLL:     drawRoll();    break;
+        case Screen::MIDI_IN:    drawInput();   break;
         case Screen::NO_FILES: drawNoFiles(); break;
         case Screen::NO_SD:    drawNoSd();    break;
         default: break;

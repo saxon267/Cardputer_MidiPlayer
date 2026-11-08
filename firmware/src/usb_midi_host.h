@@ -7,6 +7,7 @@
 class UsbMidiHost {
 public:
     using ConnectCallback = void (*)(bool connected, void* context);
+    using InputCallback = void (*)(uint8_t status, uint8_t d1, uint8_t d2, void* context);
 
     bool begin();
     void poll();
@@ -22,6 +23,12 @@ public:
     {
         _cb = cb;
         _cbCtx = context;
+    }
+
+    void setInputCallback(InputCallback cb, void* context)
+    {
+        _inCb = cb;
+        _inCtx = context;
     }
 
     void noteOn(uint8_t ch, uint8_t note, uint8_t vel);
@@ -74,6 +81,8 @@ private:
     uint16_t                 _pid = 0;
     ConnectCallback          _cb = nullptr;
     void*                    _cbCtx = nullptr;
+    InputCallback            _inCb = nullptr;
+    void*                    _inCtx = nullptr;
 
     uint32_t                 _on[16][4] = {};
     volatile uint16_t        _bpmX10 = 0;

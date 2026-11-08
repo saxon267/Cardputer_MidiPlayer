@@ -267,6 +267,19 @@
 - 网格：按当前 BPM 画拍线，4 拍一条 `EDGE` 小节线。
 - 底部 24 px：`时间 / 总时长`、`LOOP`、`BPM`、`x1.0`；第二行 `[ ] SEEK   TAB PLAYER`。
 
+## 5.2 MIDI INPUT（v0.5.0，Host build）
+
+![MIDI INPUT](out/09-midi-input.png)
+
+- 顶部状态栏：`MIDI | INPUT`，SD / 电量 / USB 沿用。
+- 通道选择条 y=14..26：`CH1` / `CH2` / `CH3` / `CH10`，选中为 `ACC` 填充，未选为 `EDGE` 框。
+- 主区域 y=28..100：左侧 18 px 键盘，右侧 36 个半音（2 px/半音）实时卷帘；8 s 窗口。
+- 音符按通道着色：CH1 `ACC`、CH2 `AQUA`、CH3 `AMB`、CH10 `BLUE`。
+- 播放头在右侧；录音中卷帘从右向左滚动。
+- 底部 y=101..134：`REC`/`IN`/`TAKE`、时间、`EV n`、`BPM`、`R REC/STOP TAB NEXT 1/2/3/4 CH`。
+- 未连接 FM-1：显示 `CONNECT FM1 USB`；无事件：`PRESS R TO RECORD`。
+- 停止后写 `/midi/MyMIDI/TAKE_xxxx.MID`，并弹保存路径。
+
 ---
 
 ## 6. 状态机
