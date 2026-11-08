@@ -195,7 +195,7 @@ static void saveTake()
 
 static void stopTake()
 {
-    if (rec.recording()) {
+    if (rec.recording() || rec.fullTake()) {
         rec.stopRecording();
         saveTake();
     }

@@ -214,6 +214,8 @@ bool MidiRecorder::save(char* outPath, size_t outLen)
         strncpy(outPath, path, outLen - 1);
         outPath[outLen - 1] = 0;
     }
+    _full = false;
+    _fullRecording = false;
     return true;
 }
 #endif
