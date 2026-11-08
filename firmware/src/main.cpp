@@ -12,6 +12,7 @@
 #if USB_MIDI_HOST
 #include "usb_midi_host.h"
 #include "midi_recorder.h"
+static void usbLog(const char* msg);
 #endif
 
 App  app;
@@ -88,6 +89,12 @@ static void loadIndex(int idx)
     char err[40] = {0};
     MidiInfo info;
     if (!song.load(e.path, info, err, sizeof(err))) {
+        Serial.printf("[midi] load fail path=%s err=%s\n", e.path, err[0] ? err : "LOAD FAILED");
+#if USB_MIDI_HOST
+        char b[96];
+        snprintf(b, sizeof(b), "loadfail %s: %s", e.name, err[0] ? err : "LOAD FAILED");
+        usbLog(b);
+#endif
         setToast(err[0] ? err : "LOAD FAILED");
         app.screen = Screen::LIBRARY;
         ui.render();
@@ -502,16 +509,45 @@ static void handleKeys()
     pR = rkey; p1 = d1; p2 = d2; p3 = d3; p4 = d4; p0 = d0;
     pD = dkey;
 
+    static char renameLast[32] = {0};
+    static bool renameSeen = false;
+    if (!app.renaming) {
+        renameLast[0] = 0;
+        renameSeen = false;
+    }
     if (app.renaming) {
+        char cur[32] = {0};
+        int clen = 0;
         for (char c : ks.word) {
             if (c < 32 || c > 126) continue;
             if (strchr("/\\:*?\"<>|", c)) continue;
-            size_t n = strlen(app.renameBuf);
-            if (n < sizeof(app.renameBuf) - 1) {
-                app.renameBuf[n] = c;
-                app.renameBuf[n + 1] = 0;
-            }
+            if (clen < (int)sizeof(cur) - 1) cur[clen++] = c;
         }
+
+        if (!renameSeen) {
+            // The key that opened the rename box must not become the first
+            // character. Capture the current word as the baseline.
+            strncpy(renameLast, cur, sizeof(renameLast) - 1);
+            renameSeen = true;
+        } else {
+            int count[128] = {0};
+            for (const char* p = renameLast; *p; ++p) count[(uint8_t)*p]++;
+            for (int i = 0; i < clen; ++i) {
+                uint8_t c = (uint8_t)cur[i];
+                if (count[c] > 0) {
+                    --count[c];
+                    continue;
+                }
+                size_t n = strlen(app.renameBuf);
+                if (n < sizeof(app.renameBuf) - 1) {
+                    app.renameBuf[n] = (char)c;
+                    app.renameBuf[n + 1] = 0;
+                }
+            }
+            strncpy(renameLast, cur, sizeof(renameLast) - 1);
+            renameLast[sizeof(renameLast) - 1] = 0;
+        }
+
         if (eDel) {
             size_t n = strlen(app.renameBuf);
             if (n) app.renameBuf[n - 1] = 0;

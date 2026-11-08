@@ -37,6 +37,18 @@ struct Reader {
         return buf[idx++];
     }
 
+    int peek()
+    {
+        if (idx >= len && !fill()) return -1;
+        return buf[idx];
+    }
+
+    int peekAt(uint16_t off)
+    {
+        if ((uint32_t)idx + off >= len) return -1;
+        return buf[idx + off];
+    }
+
     bool skip(uint32_t n)
     {
         while (n) {
@@ -268,15 +280,23 @@ bool parseFile(const char* path, Ctx& c, char* err, size_t errLen)
             return false;
         }
         uint32_t trackEnd = r.pos + len;
+        uint32_t trackStart = r.pos;
         uint32_t tick     = 0;
         uint8_t  running  = 0;
 
         while (r.pos < trackEnd) {
-            uint32_t delta = r.vlq();
-            if (delta == 0xFFFFFFFFu) {
-                setErr(err, errLen, "BAD DELTA");
-                f.close();
-                return false;
+            uint32_t delta;
+            // v0.5.0 recordings wrote the first tempo meta without a delta
+            // byte. Accept that legacy shape so old takes remain playable.
+            int pk = r.peek();
+            if (r.pos == trackStart && pk == 0xFF && r.peekAt(1) == 0x51 && r.peekAt(2) == 0x03) delta = 0;
+            else {
+                delta = r.vlq();
+                if (delta == 0xFFFFFFFFu) {
+                    setErr(err, errLen, "BAD DELTA");
+                    f.close();
+                    return false;
+                }
             }
             tick += delta;
 

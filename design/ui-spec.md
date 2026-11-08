@@ -267,7 +267,7 @@
 - 网格：按当前 BPM 画拍线，4 拍一条 `EDGE` 小节线。
 - 底部 24 px：`时间 / 总时长`、`LOOP`、`BPM`、`x1.0`；第二行 `[ ] SEEK   TAB PLAYER`。
 
-## 5.2 MIDI INPUT（v0.8.0，Host build）
+## 5.2 MIDI INPUT（v0.8.1，Host build）
 
 ![MIDI INPUT](out/09-midi-input.png)
 
