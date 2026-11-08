@@ -331,7 +331,12 @@ void UsbMidiHost::allNotesOff(uint8_t ch)
 {
     ch &= 0x0F;
     for (int n = 0; n < 128; ++n) {
-        if (_on[ch][n >> 5] & (1u << (n & 31))) noteOff(ch, (uint8_t)n);
+        if (_on[ch][n >> 5] & (1u << (n & 31))) {
+            // Send both legal note-off forms. Some receivers only implement
+            // Note On velocity 0; Sloop accepts both, but this is belt and braces.
+            noteOff(ch, (uint8_t)n);
+            send2(0x09, (uint8_t)(0x90 | ch), (uint8_t)n, 0);
+        }
     }
     _on[ch][0] = _on[ch][1] = _on[ch][2] = _on[ch][3] = 0;
     controlChange(ch, 123, 0);
