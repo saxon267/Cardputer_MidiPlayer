@@ -1,0 +1,22 @@
+# PlatformIO
+.pio/
+.vscode/
+*.log
+
+# Python
+__pycache__/
+*.pyc
+
+# Host test binaries
+firmware/test_midi.exe
+firmware/test_synth.exe
+firmware/test_ui.exe
+firmware/*.exe
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Zig/MinGW host debug symbols
+*.pdb

@@ -1,0 +1,348 @@
+#include <Arduino.h>
+#include <M5Cardputer.h>
+#include <Preferences.h>
+#include <string.h>
+
+#include "app.h"
+#include "audio.h"
+#include "library.h"
+#include "midi.h"
+#include "ui.h"
+
+App  app;
+MidiFile song;
+
+static Preferences prefs;
+
+static void setToast(const char* msg)
+{
+    strncpy(app.toast, msg, sizeof(app.toast) - 1);
+    app.toast[sizeof(app.toast) - 1] = 0;
+    app.toastUntil = millis() + 1800;
+}
+
+static void makeTitle(const char* name, char* out, size_t n)
+{
+    const char* base = strrchr(name, '/');
+    base = base ? base + 1 : name;
+    size_t k = 0;
+    for (; base[k] && base[k] != '.' && k + 1 < n && k < 22; ++k) {
+        char c = base[k];
+        if (c == '_') c = ' ';
+        if (c >= 'a' && c <= 'z') c -= 32;
+        out[k] = c;
+    }
+    out[k] = 0;
+    while (k > 0 && out[k - 1] == ' ') out[--k] = 0;
+    if (!out[0]) snprintf(out, n, "UNTITLED");
+}
+
+static void probeCurrent()
+{
+    if (app.sel < 0 || app.sel >= library.count()) return;
+    const FileEntry& e = library.at(app.sel);
+    if (e.dir || e.durSec) return;
+    if (e.size > 192u * 1024u) return;  // don't block the UI on huge files
+
+    MidiInfo tmp;
+    if (song.probe(e.path, tmp)) {
+        library.setDuration(app.sel, (uint16_t)(tmp.durationUs / 1000000u));
+    }
+}
+
+static void adjustScroll()
+{
+    if (app.sel < app.scroll) app.scroll = app.sel;
+    if (app.sel >= app.scroll + 6) app.scroll = app.sel - 5;
+    if (app.scroll < 0) app.scroll = 0;
+}
+
+static void loadIndex(int idx)
+{
+    if (idx < 0 || idx >= library.count()) return;
+    const FileEntry& e = library.at(idx);
+
+    if (e.dir) {
+        if (library.enter(idx)) {
+            app.sel = 0;
+            app.scroll = 0;
+            probeCurrent();
+        }
+        return;
+    }
+
+    ui.loading(e.name);
+
+    audio.stop();
+    delay(30);
+    song.clear();
+    audio.clearSong();
+
+    char err[40] = {0};
+    MidiInfo info;
+    if (!song.load(e.path, info, err, sizeof(err))) {
+        setToast(err[0] ? err : "LOAD FAILED");
+        app.screen = Screen::LIBRARY;
+        ui.render();
+        return;
+    }
+
+    Serial.printf("[midi] load=%s dur=%u ev=%u heap=%u\n", e.path,
+                  (unsigned)info.durationUs, (unsigned)song.count(),
+                  (unsigned)ESP.getFreeHeap());
+    if (song.count()) {
+        Serial.printf("[midi] first t=%u last t=%u\n", (unsigned)song.events()[0].t,
+                      (unsigned)song.events()[song.count() - 1].t);
+    }
+
+    app.info = info;
+    makeTitle(e.name, app.title, sizeof(app.title));
+    app.playIndex = idx;
+
+    audio.setSong(song.events(), song.count(), info.durationUs);
+    audio.setLoop(app.loop);
+    audio.setVolume(app.volume);
+    audio.play();
+
+    app.screen = Screen::PLAYER;
+    ui.render();
+}
+
+static void nextTrack(int dir)
+{
+    int n = library.count();
+    if (n <= 0) return;
+    int start = app.playIndex >= 0 ? app.playIndex : app.sel;
+    for (int i = 1; i <= n; ++i) {
+        int idx = (start + dir * i + n * 2) % n;
+        if (!library.at(idx).dir) {
+            loadIndex(idx);
+            return;
+        }
+    }
+}
+
+static void retrySd()
+{
+    app.sdOk = library.begin();
+    if (!app.sdOk) {
+        app.screen = Screen::NO_SD;
+        return;
+    }
+
+    if (!library.scan("/midi")) library.scan("/");
+    if (library.count() == 0) library.scan("/");
+
+    app.sel = 0;
+    app.scroll = 0;
+    app.screen = library.count() ? Screen::LIBRARY : Screen::NO_FILES;
+    if (app.screen == Screen::LIBRARY) probeCurrent();
+}
+
+static void backToLibrary()
+{
+    audio.stop();
+    app.screen = Screen::LIBRARY;
+    app.sel = app.playIndex >= 0 ? app.playIndex : app.sel;
+    app.playIndex = -1;
+    adjustScroll();
+}
+
+static void handleKeys()
+{
+    auto& ks = M5Cardputer.Keyboard.keysState();
+
+    static bool pEnter = false, pSpace = false, pDel = false;
+    static bool pUp = false, pDown = false, pLeft = false, pRight = false;
+    static bool pComma = false, pDot = false, pL = false;
+    static bool pMinus = false, pPlus = false;
+
+    bool enter = ks.enter;
+    bool space = ks.space;
+    bool del   = ks.del;
+    bool up    = ks.fn && M5Cardputer.Keyboard.isKeyPressed(';');
+    bool down  = ks.fn && M5Cardputer.Keyboard.isKeyPressed('.');
+    bool left  = ks.fn && M5Cardputer.Keyboard.isKeyPressed(',');
+    bool right = ks.fn && M5Cardputer.Keyboard.isKeyPressed('/');
+    bool comma = !ks.fn && M5Cardputer.Keyboard.isKeyPressed(',');
+    bool dot   = !ks.fn && M5Cardputer.Keyboard.isKeyPressed('.');
+    bool lkey  = !ks.fn && M5Cardputer.Keyboard.isKeyPressed('l');
+    bool minus = !ks.fn && M5Cardputer.Keyboard.isKeyPressed('-');
+    bool plus  = !ks.fn && M5Cardputer.Keyboard.isKeyPressed('=');
+
+    bool eEnter = enter && !pEnter;
+    bool eSpace = space && !pSpace;
+    bool eDel   = del && !pDel;
+    bool eUp    = up && !pUp;
+    bool eDown  = down && !pDown;
+    bool eLeft  = left && !pLeft;
+    bool eRight = right && !pRight;
+    bool eComma = comma && !pComma;
+    bool eDot   = dot && !pDot;
+    bool eL     = lkey && !pL;
+    bool eMinus = minus && !pMinus;
+    bool ePlus  = plus && !pPlus;
+
+    pEnter = enter; pSpace = space; pDel = del;
+    pUp = up; pDown = down; pLeft = left; pRight = right;
+    pComma = comma; pDot = dot; pL = lkey;
+    pMinus = minus; pPlus = plus;
+
+    if (eMinus && app.volume >= 10) {
+        app.volume -= 10;
+        audio.setVolume(app.volume);
+        prefs.putUChar("vol", app.volume);
+    }
+    if (ePlus && app.volume <= 90) {
+        app.volume += 10;
+        audio.setVolume(app.volume);
+        prefs.putUChar("vol", app.volume);
+    }
+
+    if (app.screen == Screen::LIBRARY) {
+        int n = library.count();
+        if (eUp && n) { app.sel = (app.sel + n - 1) % n; adjustScroll(); probeCurrent(); }
+        if (eDown && n) { app.sel = (app.sel + 1) % n; adjustScroll(); probeCurrent(); }
+        if (eEnter || eSpace) loadIndex(app.sel);
+        if (eLeft || eDel) {
+            if (library.up()) {
+                app.sel = 0;
+                app.scroll = 0;
+                probeCurrent();
+            }
+        }
+        if (eRight) loadIndex(app.sel);
+    } else if (app.screen == Screen::PLAYER) {
+        if (eEnter || eSpace) {
+            if (audio.ended()) audio.play();
+            else               audio.togglePause();
+        }
+        if (eDel) backToLibrary();
+        if (eLeft)  audio.seek(-5000000);
+        if (eRight) audio.seek(+5000000);
+        if (eUp && app.volume <= 95) {
+            app.volume += 5;
+            audio.setVolume(app.volume);
+            prefs.putUChar("vol", app.volume);
+        }
+        if (eDown && app.volume >= 5) {
+            app.volume -= 5;
+            audio.setVolume(app.volume);
+            prefs.putUChar("vol", app.volume);
+        }
+        if (eComma) nextTrack(-1);
+        if (eDot)   nextTrack(+1);
+        if (eL) {
+            app.loop = !app.loop;
+            audio.setLoop(app.loop);
+            prefs.putBool("loop", app.loop);
+        }
+    } else if (app.screen == Screen::NO_SD) {
+        if (eEnter || eDel) retrySd();
+    } else if (app.screen == Screen::NO_FILES) {
+        if (eEnter || eDel) retrySd();
+    }
+}
+
+void setup()
+{
+    Serial.begin(115200);
+    delay(60);
+    Serial.printf("\n[midi] boot v%s, heap=%u\n", APP_VERSION, (unsigned)ESP.getFreeHeap());
+
+    auto cfg = M5.config();
+    cfg.internal_spk = false;
+    cfg.internal_mic = false;
+    cfg.internal_imu = false;
+    cfg.internal_rtc = false;
+    M5Cardputer.begin(cfg, true);
+    M5Cardputer.Display.setBrightness(140);
+
+    prefs.begin("midi", false);
+    app.volume = prefs.getUChar("vol", 78);
+    if (app.volume > 100) app.volume = 78;
+    app.loop = prefs.getBool("loop", false);
+
+    ui.begin();
+    Serial.printf("[midi] heap after ui=%u\n", (unsigned)ESP.getFreeHeap());
+    ui.boot(0, 0);
+    delay(100);
+
+    bool audioOk = audio.begin();
+    Serial.printf("[midi] audio=%d codec=%d heap=%u\n", audioOk ? 1 : 0, audio.codecOk() ? 1 : 0,
+                  (unsigned)ESP.getFreeHeap());
+    audio.setVolume(app.volume);
+    audio.setLoop(app.loop);
+    if (audioOk) audio.start();
+
+    app.sdOk = library.begin();
+    if (app.sdOk) {
+        if (!library.scan("/midi")) library.scan("/");
+        if (library.count() == 0) library.scan("/");
+    }
+    Serial.printf("[midi] sd=%d files=%d heap=%u\n", app.sdOk ? 1 : 0, library.count(),
+                  (unsigned)ESP.getFreeHeap());
+
+    ui.boot(55, library.count());
+    delay(180);
+    ui.boot(100, library.count());
+    delay(240);
+
+    app.battery = M5.Power.getBatteryLevel();
+    if (app.battery > 100 || app.battery < 0) app.battery = 80;
+
+    if (!app.sdOk) {
+        app.screen = Screen::NO_SD;
+    } else if (library.count() == 0) {
+        app.screen = Screen::NO_FILES;
+    } else {
+        app.screen = Screen::LIBRARY;
+        app.sel = 0;
+        app.scroll = 0;
+        probeCurrent();
+    }
+
+    ui.render();
+    if (!audioOk) {
+        setToast("AUDIO INIT FAILED");
+        ui.render();
+    } else if (!audio.codecOk()) {
+        setToast("NO CODEC");
+        ui.render();
+    }
+
+    Serial.printf("[midi] ready: sd=%d files=%d heap=%u\n", app.sdOk ? 1 : 0,
+                  library.count(), (unsigned)ESP.getFreeHeap());
+}
+
+void loop()
+{
+    M5Cardputer.update();
+    handleKeys();
+
+    static uint32_t lastRender = 0;
+    static uint32_t lastBat    = 0;
+    uint32_t now = millis();
+
+    if (now - lastBat > 10000) {
+        lastBat = now;
+        int b = M5.Power.getBatteryLevel();
+        if (b >= 0 && b <= 100) app.battery = (uint8_t)b;
+    }
+
+    if (now - lastRender >= 100) {
+        lastRender = now;
+        ui.render();
+    }
+
+    static uint32_t lastDiag = 0;
+    if (now - lastDiag >= 5000) {
+        lastDiag = now;
+        Serial.printf("[midi] pos=%u/%u cpu=%u%% ur=%u heap=%u\n",
+                      (unsigned)audio.positionUs(), (unsigned)audio.durationUs(),
+                      (unsigned)audio.cpuPct(), (unsigned)audio.underruns(),
+                      (unsigned)ESP.getFreeHeap());
+    }
+
+    delay(2);
+}
