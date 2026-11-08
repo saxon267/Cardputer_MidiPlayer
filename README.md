@@ -6,7 +6,7 @@
 
 把 SD 卡里的 `.mid` 播成钢琴声：一个 240×135、Gruvbox Dark 的随身 MIDI 播放器。
 
-> **v0.5.0 MIDI Input beta**：普通播放器/钢琴卷帘/倍速/串口版稳定；USB-C Host → FM-1 与 MIDI INPUT 录音为实验功能。  
+> **v0.5.1 MIDI Input beta**：普通播放器/钢琴卷帘/倍速/串口版稳定；USB-C Host → FM-1 与 MIDI INPUT 录音为实验功能。  
 > **速查表：** [CHEATSHEET.md](CHEATSHEET.md) · **v0.4.0 发布说明：** [RELEASE_NOTES.md](RELEASE_NOTES.md)
 > 设计评估仍有效；Phase 2（4 MB Flash 采样钢琴）尚未实现。
 
@@ -15,13 +15,13 @@
 | 目标机 | M5Stack Cardputer-Adv（ESP32-S3FN8，512 KB SRAM，8 MB Flash，**无 PSRAM**） |
 | 音频 | ES8311 单声道 + NS4150B 1 W；3.5 mm 单声道耳机 |
 | 屏幕 | 240×135 IPS，1.14" |
-| v0.5.0 固件 | SMF Format 0/1 + 24 声部 / 2 泛音合成钢琴 + 44.1 kHz 直连 I2S |
+| v0.5.1 固件 | SMF Format 0/1 + 24 声部 / 2 泛音合成钢琴 + 44.1 kHz 直连 I2S |
 | USB-C Host（实验） | 一根 USB-C 直连 FM-1 Sloop；MIDI INPUT 页录 FM-1 键盘/sequencer 到 `/midi/MyMIDI` |
 | Phase 2 | 4 MB Flash 多采样钢琴（18 区 / 22.05 kHz / 16-bit） |
 | 工作量 | 合成版 MVP 60–90 h；采样版 110–160 h |
 | 音质 | 便携琴级别，不是钢琴；耳机明显更好 |
 
-## 固件 v0.5.0
+## 固件 v0.5.1
 
 **功能**：SD `/midi`（回退 `/`）、文件夹、`.mid` / `.midi`、Format 0/1、tempo、CC64 延音、24 声部钢琴、播放/暂停、`Fn+,` / `Fn+/` seek ±5 s、`[` / `]` seek ±1 s、0.1–3.0 倍速、Tab 切换动态钢琴卷帘、上一首/下一首、循环、音量/速度 NVS、9 个 Gruvbox 界面。  
 Host build 额外有 **MIDI INPUT**：录 FM-1 键盘/sequencer，CH1/2/3/10 可选，实时卷帘，停止后写 `/midi/MyMIDI/TAKE_xxxx.MID`。
