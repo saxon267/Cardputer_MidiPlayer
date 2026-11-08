@@ -1,8 +1,8 @@
-# Cardputer MIDI Player — 固件 v0.1.2
+# Cardputer MIDI Player — 固件 v0.1.3
 
-Cardputer-Adv 上的 SD 卡 MIDI 播放器。v0.1.2 是 **可运行的合成钢琴版**：流式 UI、SMF Format 0/1、24 声部钢琴、播放/暂停/seek/循环。
+Cardputer-Adv 上的 SD 卡 MIDI 播放器。v0.1.3 是 **可运行的合成钢琴版**：流式 UI、SMF Format 0/1、24 声部钢琴、播放/暂停/seek/循环。
 
-> 状态：**v0.1.2 已在实体 Cardputer-Adv 上跑通**（COM3，`sd=1` / `codec=1`，24 声部 / 2 泛音 loop 25 s，CPU 56–57%，`ur=0`）。音质仍以听感为准；如果还有爆音，按第 7 节用串口 `ur/cpu` 定位。
+> 状态：**v0.1.3 已在实体 Cardputer-Adv 上跑通**（COM3，`sd=1` / `codec=1`，24 声部 / 2 泛音，**CPU 19–21%，`ur=0`**）。v0.1.3 修复了 note-off 包络被 attack 抵消、导致“音符永不释放/延音糊成一团”的 bug，并缩短了释音和泛音衰减。
 
 ---
 
@@ -119,9 +119,10 @@ SD:/
 
 - **不走 M5Unified Speaker**，直接 `i2s_driver_install` + ES8311 寄存器初始化；这条路在 `Cardputer_MPC` 上验证过，能控制 DMA 和块大小。
 - 44.1 kHz，**256 帧/块（5.8 ms）**，6 个 DMA 缓冲（约 35 ms）；音频任务固定在 core 1、优先级 20。
-- 24 声部 × 2 泛音，软件正弦表 + 线性插值；每声部增益 0.20，主输出有 **软限幅 + 峰值 limiter**，避免和弦把 tanh 推到硬饱和。
+- 24 声部 × 2 泛音，软件正弦表 + 线性插值；每声部增益 **0.16**，主输出 `volume² × 0.90`，有 **软限幅 + 峰值 limiter**。
+- **释音 0.05 s 时间常数**（到 -63 dB 约 0.36 s），泛音衰减 **1.8 / 1.2 / 0.8 s**（低音最多 ×1.8）；修掉了“release 时 attack 还在加、包络永不下降”的 bug。
 - ES8311 模拟音量固定在 **78**（不是 100），数字音量留给用户；主链路最后有 **90 Hz 高通**，减少 1 W 喇叭推不动的低频造成的破音。
-- 源码用 `-O3`（`build_src_flags`，只作用于本工程源文件；M5GFX 仍用 `-Os`）。真机实测：24 声部 / 2 泛音，样本文件连续 loop 25 s，**CPU 56–57%，`ur=0`**。
+- 源码用 `-O3`（`build_src_flags`，只作用于本工程源文件；M5GFX 仍用 `-Os`）。真机实测：24 声部 / 2 泛音，样本文件 **CPU 19–21%，`ur=0`**。
 - 暂停用 ~50 ms 增益淡出，恢复淡入；seek 后从 0 增益淡入。
 - 暂停 = 停止推进 `_posUs`，继续输出静音块；恢复从原位置继续。
 
@@ -182,6 +183,11 @@ g++ -std=c++17 -I test/host -I src test/host/test_midi.cpp src/midi.cpp -o test_
 # 合成器冒烟测试 + 3 秒试听 WAV：
 g++ -std=c++17 -I src test/host/test_synth.cpp src/synth.cpp -o test_synth
 ./test_synth assets/demo.wav
+
+# note-off 释音回归测试（应 ≈366 ms 后 active=0）：
+g++ -std=c++17 -I src test/host/test_release.cpp src/synth.cpp -o test_release
+./test_release
+# 期望：RESULT OK
 
 # UI 离屏渲染（stub M5GFX，输出 ui_*.bmp）：
 g++ -std=c++17 -I test/host/ui -I test/host -I src test/host/test_ui.cpp src/ui.cpp -o test_ui

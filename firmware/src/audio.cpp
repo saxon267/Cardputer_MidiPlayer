@@ -172,7 +172,7 @@ void AudioEngine::taskLoop()
 
             if (active || _fade > 0.002f) {
                 float vol = _volume / 100.0f;
-                gPiano->render(mono, AUDIO_BLOCK, vol * vol * 1.2f * _fade);
+                gPiano->render(mono, AUDIO_BLOCK, vol * vol * 0.90f * _fade);
                 if (active) {
                     gPiano->fillMask(_active);
                     _voices = gPiano->activeCount();

@@ -47,12 +47,12 @@ void Piano::noteOn(uint8_t note, uint8_t vel, uint8_t ch)
     float f  = 440.0f * powf(2.0f, (note - 69) / 12.0f);
     float vv = vel / 127.0f;
     float tauScale = 261.63f / f;
-    if (tauScale < 0.45f) tauScale = 0.45f;
-    if (tauScale > 3.0f) tauScale = 3.0f;
+    if (tauScale < 0.40f) tauScale = 0.40f;
+    if (tauScale > 1.80f) tauScale = 1.80f;
 
     const float ratio[3] = {1.0f, 2.001f, 3.006f};
     const float amps[3]  = {1.0f, 0.42f, 0.18f};
-    const float taus[3]  = {3.0f, 1.9f, 1.2f};
+    const float taus[3]  = {1.8f, 1.2f, 0.8f};
 
     for (int k = 0; k < P; ++k) {
         v.phase[k] = 0;
@@ -62,8 +62,8 @@ void Piano::noteOn(uint8_t note, uint8_t vel, uint8_t ch)
     }
 
     v.attack = 1.0f / (0.004f * (float)AUDIO_RATE);
-    v.rel    = expf(-1.0f / (0.16f * (float)AUDIO_RATE));
-    v.gain   = 0.20f * powf(vv, 1.3f);
+    v.rel    = expf(-1.0f / (0.05f * (float)AUDIO_RATE));
+    v.gain   = 0.16f * powf(vv, 1.3f);
     v.noiseEnv = 0.35f;
     v.lfsr   = 0x9E3779B9u ^ ((uint32_t)note * 2654435761u);
 }
@@ -114,7 +114,7 @@ void Piano::render(int16_t* out, int frames, float master)
         if (!v.active) continue;
 
         for (int i = 0; i < frames; ++i) {
-            if (v.env < 1.0f) {
+            if (!v.released && v.env < 1.0f) {
                 v.env += v.attack;
                 if (v.env > 1.0f) v.env = 1.0f;
             }
@@ -183,6 +183,18 @@ void Piano::render(int16_t* out, int frames, float master)
         if (s > 32767) s = 32767;
         if (s < -32768) s = -32768;
         out[i] = (int16_t)s;
+    }
+
+    // With the pedal down a voice can be inaudible but still occupy a slot;
+    // release it once all partials have decayed to zero.
+    for (int vi = 0; vi < V; ++vi) {
+        Voice& v = _v[vi];
+        if (!v.active) continue;
+        bool silent = true;
+        for (int k = 0; k < P; ++k) {
+            if (v.amp[k] != 0.0f) { silent = false; break; }
+        }
+        if (silent) v.active = false;
     }
 }
 

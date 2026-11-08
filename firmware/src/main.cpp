@@ -150,12 +150,12 @@ static void backToLibrary()
 
 static void printStatus()
 {
-    Serial.printf("[midi] dbg screen=%d sel=%d play=%d pause=%d end=%d pos=%u/%u cpu=%u ur=%u vol=%u heap=%u\n",
+    Serial.printf("[midi] dbg screen=%d sel=%d play=%d pause=%d end=%d loop=%d pos=%u/%u cpu=%u ur=%u voices=%u vol=%u heap=%u\n",
                   (int)app.screen, app.sel, audio.playing() ? 1 : 0, audio.paused() ? 1 : 0,
-                  audio.ended() ? 1 : 0, (unsigned)audio.positionUs(),
+                  audio.ended() ? 1 : 0, app.loop ? 1 : 0, (unsigned)audio.positionUs(),
                   (unsigned)audio.durationUs(), (unsigned)audio.cpuPct(),
-                  (unsigned)audio.underruns(), (unsigned)app.volume,
-                  (unsigned)ESP.getFreeHeap());
+                  (unsigned)audio.underruns(), (unsigned)audio.voices(),
+                  (unsigned)app.volume, (unsigned)ESP.getFreeHeap());
 }
 
 // Small USB-CDC debug console. Handy when the keyboard is not reachable.
