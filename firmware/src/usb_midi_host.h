@@ -43,8 +43,11 @@ private:
 
     static void clientCb(const usb_host_client_event_msg_t* msg, void* arg);
     static void transferCb(usb_transfer_t* t);
+    static void taskEntry(void* arg);
+    void taskLoop();
 
     usb_host_client_handle_t _client = nullptr;
+    void*                    _task = nullptr;
     usb_device_handle_t      _dev    = nullptr;
     usb_transfer_t*          _out    = nullptr;
     volatile bool            _inFlight = false;

@@ -25,7 +25,26 @@ bool UsbMidiHost::begin()
         _client = nullptr;
         return false;
     }
+    if (xTaskCreatePinnedToCore(taskEntry, "usb-midi", 6144, this, 5, (TaskHandle_t*)&_task, 0) != pdPASS) {
+        usb_host_client_deregister(_client);
+        _client = nullptr;
+        usb_host_uninstall();
+        return false;
+    }
     return true;
+}
+
+void UsbMidiHost::taskEntry(void* arg)
+{
+    static_cast<UsbMidiHost*>(arg)->taskLoop();
+}
+
+void UsbMidiHost::taskLoop()
+{
+    while (true) {
+        poll();
+        vTaskDelay(1);
+    }
 }
 
 void UsbMidiHost::clientCb(const usb_host_client_event_msg_t* msg, void* arg)

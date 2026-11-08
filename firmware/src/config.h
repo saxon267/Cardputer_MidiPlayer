@@ -18,7 +18,13 @@
 
 // ---------------------------------------------------------------- audio
 static constexpr uint32_t AUDIO_RATE  = 44100;
+#ifdef USB_MIDI_HOST
+// USB-MIDI output is clocked from the audio block; 64 frames = 1.45 ms so
+// host-mode note timing is much tighter than the local-audio 256-frame build.
+static constexpr int      AUDIO_BLOCK = 64;
+#else
 static constexpr int      AUDIO_BLOCK = 256;   // 5.8 ms; 6 DMA buffers = 35 ms
+#endif
 static constexpr int      MAX_VOICES  = 24;
 static constexpr int      MAX_PARTIALS = 2;
 

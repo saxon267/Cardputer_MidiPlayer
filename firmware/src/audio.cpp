@@ -108,6 +108,7 @@ void AudioEngine::apply(const MidiEvent& e)
         default: break;
     }
 #endif
+    if (e.pad == 9) return;  // GM drums: no local piano, but already sent to USB
     switch (e.type) {
         case EV_ON:      gPiano->noteOn(e.note, e.vel, e.pad); break;
         case EV_OFF:     gPiano->noteOff(e.note, e.pad);       break;

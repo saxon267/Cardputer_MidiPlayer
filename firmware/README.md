@@ -71,13 +71,15 @@ pwsh tools/make_bin.ps1 -Env cardputer_midi_usb
 
 **状态指示：**
 
-- 顶栏 `USB`：红 = Host 初始化失败；灰 = Host 正常但未识别到 FM-1 的 MIDI OUT；绿 = 已连接，本地喇叭已静音。
+- 顶栏 `USB`：红 = Host 初始化失败；黄 = 枚举到 USB 设备但没找到 MIDI OUT；灰 = Host 正常但未识别到 FM-1；绿 = 已连接，本地喇叭已静音。
 - 连接/断开时屏幕会弹 `FM1 CONNECTED` / `FM1 DISCONNECTED`。
 
 **限制：**
 
 - `cardputer_midi_usb` build **没有 USB-CDC 串口**；调试只能看屏幕。要串口日志请刷普通 `cardputer_midi`。
-- 当前从 5.8 ms 音频块里发 MIDI，音符抖动约 0–6 ms；自动演奏可用，紧密鼓机/时钟同步还需 1 ms 调度器。
+- Host build 用 **64 帧音频块（1.45 ms）** 作为 MIDI 时钟；USB 发送在独立 `usb-midi` 任务里，UI 全屏刷新不会长时间挡住 MIDI。
+- **channel 10 现在保留在事件数组里**：普通 build 的本地钢琴仍跳过鼓，但 Host build 会把鼓音符原样发给 FM-1（Sloop `DR MAP=GM`）。
+- 当前 MIDI 消息：Note On/Off、CC64 延音、All Notes Off/All Sound Off；**不发 Program Change**、Pitch Bend、Clock。
 - FM-1 是 USB MIDI + USB Audio 复合设备；Host 只 claim MIDIStreaming，忽略 Audio。若其配置描述符超过 256 字节，Arduino Host 栈可能在枚举阶段失败，需要改 IDF 限制或换 Host 栈。
 - 只用 USB-C；没有 Grove/TRS 依赖。
 - 首次连接、供电、描述符兼容性仍需真机确认。

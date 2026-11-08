@@ -490,7 +490,6 @@ void loop()
 {
     M5Cardputer.update();
 #if USB_MIDI_HOST
-    usbMidi.poll();
     app.usbDeviceSeen = usbMidi.deviceSeen();
     static bool lastUsb = false;
     if (app.usbConnected != lastUsb) {

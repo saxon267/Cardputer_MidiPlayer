@@ -426,8 +426,8 @@ bool parseFile(const char* path, Ctx& c, char* err, size_t errLen)
                     break;
             }
 
-            if (ch == 9) continue;  // GM drums: no piano
-
+            // Keep channel 10 (GM drums): the local synth ignores them, but
+            // the USB-MIDI host build needs to forward them to the FM-1.
             if (hi == 0x90) {
                 if (d2 == 0) addEvent(c, tick, EV_OFF, d1, 0, ch);
                 else         addEvent(c, tick, EV_ON, d1, d2, ch);
