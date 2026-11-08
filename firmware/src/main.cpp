@@ -148,14 +148,29 @@ static void retrySd()
     if (app.screen == Screen::LIBRARY) probeCurrent();
 }
 
+static void refreshLibrary()
+{
+    char path[96];
+    strncpy(path, library.path(), sizeof(path) - 1);
+    path[sizeof(path) - 1] = 0;
+    library.scan(path);
+    int n = library.count();
+    if (app.sel >= n) app.sel = n ? n - 1 : 0;
+    if (app.sel < 0) app.sel = 0;
+    adjustScroll();
+    probeCurrent();
+}
+
 static void backToLibrary()
 {
     audio.stop();
+    refreshLibrary();
     app.screen = Screen::LIBRARY;
     app.sel = app.playIndex >= 0 ? app.playIndex : app.sel;
     app.playIndex = -1;
     app.ev = nullptr;
     app.evCount = 0;
+    if (app.sel >= library.count()) app.sel = library.count() ? library.count() - 1 : 0;
     adjustScroll();
 }
 
@@ -329,7 +344,7 @@ static void handleKeys()
 
     static bool pEnter = false, pSpace = false, pDel = false;
     static bool pUp = false, pDown = false, pLeft = false, pRight = false;
-    static bool pComma = false, pDot = false, pL = false;
+    static bool pL = false, pP = false, pN = false;
     static bool pMinus = false, pPlus = false;
     static bool pLBr = false, pRBr = false, pTab = false;
     static bool pR = false, p1 = false, p2 = false, p3 = false, p4 = false, p0 = false;
@@ -338,12 +353,12 @@ static void handleKeys()
     bool enter = ks.enter;
     bool space = ks.space;
     bool del   = ks.del;
-    bool up    = ks.fn && M5Cardputer.Keyboard.isKeyPressed(';');
-    bool down  = ks.fn && M5Cardputer.Keyboard.isKeyPressed('.');
-    bool left  = ks.fn && M5Cardputer.Keyboard.isKeyPressed(',');
-    bool right = ks.fn && M5Cardputer.Keyboard.isKeyPressed('/');
-    bool comma = !ks.fn && M5Cardputer.Keyboard.isKeyPressed(',');
-    bool dot   = !ks.fn && M5Cardputer.Keyboard.isKeyPressed('.');
+    bool up    = M5Cardputer.Keyboard.isKeyPressed(';');
+    bool down  = M5Cardputer.Keyboard.isKeyPressed('.');
+    bool left  = M5Cardputer.Keyboard.isKeyPressed(',');
+    bool right = M5Cardputer.Keyboard.isKeyPressed('/');
+    bool prevKey = !ks.fn && M5Cardputer.Keyboard.isKeyPressed('p');
+    bool nextKey = !ks.fn && M5Cardputer.Keyboard.isKeyPressed('n');
     bool lkey  = !ks.fn && M5Cardputer.Keyboard.isKeyPressed('l');
     bool minus = !ks.fn && M5Cardputer.Keyboard.isKeyPressed('-');
     bool plus  = !ks.fn && M5Cardputer.Keyboard.isKeyPressed('=');
@@ -365,8 +380,8 @@ static void handleKeys()
     bool eDown  = down && !pDown;
     bool eLeft  = left && !pLeft;
     bool eRight = right && !pRight;
-    bool eComma = comma && !pComma;
-    bool eDot   = dot && !pDot;
+    bool ePrev  = prevKey && !pP;
+    bool eNext  = nextKey && !pN;
     bool eL     = lkey && !pL;
     bool eMinus = minus && !pMinus;
     bool ePlus  = plus && !pPlus;
@@ -383,7 +398,7 @@ static void handleKeys()
 
     pEnter = enter; pSpace = space; pDel = del;
     pUp = up; pDown = down; pLeft = left; pRight = right;
-    pComma = comma; pDot = dot; pL = lkey;
+    pL = lkey; pP = prevKey; pN = nextKey;
     pMinus = minus; pPlus = plus;
     pLBr = lbr; pRBr = rbr; pTab = tab;
     pR = rkey; p1 = d1; p2 = d2; p3 = d3; p4 = d4; p0 = d0;
@@ -410,23 +425,24 @@ static void handleKeys()
         if (eRBr) audio.seek(+1000000);
     }
 
-#if USB_MIDI_HOST
     if (eTab) {
-        if (app.screen == Screen::PLAYER) {
+        if (app.screen == Screen::LIBRARY) {
+            app.screen = Screen::PLAYER;
+        } else if (app.screen == Screen::PLAYER) {
             app.screen = Screen::ROLL;
         } else if (app.screen == Screen::ROLL) {
             app.screen = Screen::MIDI_IN;
+#if USB_MIDI_HOST
             if (!rec.recording()) rec.beginPreview();
+#endif
         } else if (app.screen == Screen::MIDI_IN) {
+#if USB_MIDI_HOST
             stopTake();
-            app.screen = Screen::PLAYER;
+#endif
+            refreshLibrary();
+            app.screen = Screen::LIBRARY;
         }
     }
-#else
-    if (eTab && (app.screen == Screen::PLAYER || app.screen == Screen::ROLL)) {
-        app.screen = (app.screen == Screen::PLAYER) ? Screen::ROLL : Screen::PLAYER;
-    }
-#endif
 
     if (eMinus && app.volume >= 10) {
         app.volume -= 10;
@@ -474,8 +490,8 @@ static void handleKeys()
             audio.setVolume(app.volume);
             prefs.putUChar("vol", app.volume);
         }
-        if (eComma) nextTrack(-1);
-        if (eDot)   nextTrack(+1);
+        if (ePrev) nextTrack(-1);
+        if (eNext) nextTrack(+1);
         if (eL) {
             app.loop = !app.loop;
             audio.setLoop(app.loop);
@@ -499,15 +515,15 @@ static void handleKeys()
             audio.setVolume(app.volume);
             prefs.putUChar("vol", app.volume);
         }
-        if (eComma) nextTrack(-1);
-        if (eDot)   nextTrack(+1);
+        if (ePrev) nextTrack(-1);
+        if (eNext) nextTrack(+1);
         if (eL) {
             app.loop = !app.loop;
             audio.setLoop(app.loop);
             prefs.putBool("loop", app.loop);
         }
-#if USB_MIDI_HOST
     } else if (app.screen == Screen::MIDI_IN) {
+#if USB_MIDI_HOST
         if (eDel) {
             stopTake();
             app.screen = Screen::PLAYER;
@@ -529,6 +545,8 @@ static void handleKeys()
             if (e3) rec.toggleChannel(2);
             if (e4 || e0) rec.toggleChannel(9);
         }
+#else
+        if (eDel) app.screen = Screen::PLAYER;
 #endif
     } else if (app.screen == Screen::NO_SD) {
         if (eEnter || eDel) retrySd();

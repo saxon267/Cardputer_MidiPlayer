@@ -1,8 +1,8 @@
-# Cardputer MIDI Player — 固件 v0.6.0
+# Cardputer MIDI Player — 固件 v0.7.0
 
-Cardputer-Adv 上的 SD 卡 MIDI 播放器。v0.6.0 在 v0.4.0 的播放器、钢琴卷帘、倍速之上，为 USB-C Host build 增加 **MIDI INPUT 标签页**：录 FM-1 自己的键盘/sequencer，按 CH1/2/3/10 选择通道，实时钢琴卷帘，停止后写入 `/midi/MyMIDI/<PREFIX>_TAKE_xxxx.MID`。
+Cardputer-Adv 上的 SD 卡 MIDI 播放器。v0.7.0 在 v0.4.0 的播放器、钢琴卷帘、倍速之上，为 USB-C Host build 增加 **RECORDER 标签页**：录 FM-1 自己的键盘/sequencer，按 CH1/2/3/10 选择通道，实时钢琴卷帘，停止后写入 `/midi/MyMIDI/<PREFIX>_TAKE_xxxx.MID`。
 
-> 状态：普通 `cardputer_midi` build 已在实体 Cardputer-Adv 上验证启动/播放/CPU/无欠载；USB-C Host 与 MIDI INPUT 为实验功能，需真机复测。  
+> 状态：普通 `cardputer_midi` build 已在实体 Cardputer-Adv 上验证启动/播放/CPU/无欠载；USB-C Host 与 RECORDER 为实验功能，需真机复测。  
 > 速查表：[`../CHEATSHEET.md`](../CHEATSHEET.md) · 发布说明：[`../RELEASE_NOTES.md`](../RELEASE_NOTES.md)
 
 ---
@@ -15,11 +15,11 @@ Cardputer-Adv 上的 SD 卡 MIDI 播放器。v0.6.0 在 v0.4.0 的播放器、�
 | SMF | Format 0 / 1，PPQ；SMPTE 和 Format 2 明确拒绝 |
 | 音符 | note on/off、velocity、CC64 延音、CC7/CC11 忽略、channel 10 鼓保留（本地钢琴跳过，Host 转发/可录） |
 | 音色 | 24 声部加法钢琴（2 个泛音 + 噪声起音），44.1 kHz 单声道 |
-| 走带 | 播放 / 暂停、`Fn+,` / `Fn+/` 快退快进 5 s、上一首 / 下一首、单曲循环、**0.1–3.0 倍速** |
-| 钢琴卷帘 | `Tab` 在播放页 / 卷帘页之间切换；卷帘横向跟随时钟滚动、纵向自动跟随音域 |
-| MIDI INPUT | Host build：录 FM-1 键盘/sequencer，`1/2/3/4` 选 CH1/2/3/10，实时卷帘，写 `/midi/MyMIDI/<PREFIX>_TAKE_xxxx.MID` |
+| 走带 | 播放 / 暂停、`,` / `/` 快退快进 5 s、上一首 / 下一首、单曲循环、**0.1–3.0 倍速** |
+| 四页 | `Tab`: PLAYER → PIANO → RECORDER → FILES → PLAYER；卷帘横向跟随时钟滚动、纵向自动跟随音域 |
+| RECORDER | Host build：录 FM-1 键盘/sequencer，`1/2/3/4` 选 CH1/2/3/10，实时卷帘，写 `/midi/MyMIDI/<PREFIX>_TAKE_xxxx.MID` |
 | 音量 | 5 / 10 步进，NVS 保存 |
-| UI | 240×135 Gruvbox Dark，列表 / 播放 / 卷帘 / MIDI INPUT / 暂停 / 结束 / 无文件 / 无卡 / 开机 |
+| UI | 240×135 Gruvbox Dark，列表 / 播放 / 卷帘 / RECORDER / 暂停 / 结束 / 无文件 / 无卡 / 开机 |
 | 状态 | 进度、总时长、BPM、调号、小节、实时音符、声部数、踏板、速度 |
 
 ## 2. 构建与刷机
@@ -109,15 +109,16 @@ Sloop 2.7 的 **`ARP 2 → HOLD`** 在 `ARP MODE = OFF` 时会把收到的 MIDI 
 - 只用 USB-C；没有 Grove/TRS 依赖。
 - 首次连接、供电、描述符兼容性仍需真机确认。
 
-### MIDI INPUT（Host build，v0.6.0）
+### RECORDER（Host build，v0.7.0）
 
-![MIDI INPUT](../design/out/09-midi-input.png)
+![RECORDER](../design/out/09-midi-input.png)
 
-- `Tab` 在 Host build 循环：**PLAYER → ROLL → MIDI INPUT → PLAYER**。
+- `Tab` 四页循环：**PLAYER → PIANO → RECORDER → FILES → PLAYER**。
 - 输入源是 **FM-1 自己的键盘/sequencer**，从 USB MIDI OUT 发回 Cardputer；不是外接键盘。
 - 外接 MIDI 键盘如果插在 FM-1 的 TRS MIDI IN，Sloop 不会把这些音符从 USB 回传；要在 Cardputer 上录外接键盘，需要另外接 Cardputer 的 TRS/USB 输入。
 - 通道选择：`1` / `2` / `3` / `4` 切换 **CH1 / CH2 / CH3 / CH10**，至少保留一个；默认 CH1。
 - `R`（或 `Enter` / `Space`）开始/停止录音；`Tab` / `Backspace` 离开时会先停止并保存。
+- 按 `R` 后先进入 **ARMED**：收到第一个所选通道的 MIDI 才从 0 开始计时；前面的静音不写入。文件在最后一个 MIDI 事件处结束，不保留尾部静音。
 - 实时钢琴卷帘显示所选通道的输入音符。
 - 停止后写到 SD：
 
@@ -139,7 +140,7 @@ Sloop 2.7 的 **`ARP 2 → HOLD`** 在 `ARP MODE = OFF` 时会把收到的 MIDI 
 
 - 文件：Format 0、480 PPQ、单轨、当前 BPM 的 tempo；记录 Note On/Off、CC64；不记录 SysEx/Pitch Bend/Clock。
 - 最多 **6000 个事件**（约 48 KB RAM）；满 6000 自动停止并保存。
-- Sloop 要发 sequencer 时设 `GLO → MIDI 2 → OUT = SEQ`；只弹 FM-1 键盘时 `OUT = KEYS`（或默认）。
+- **要录 FM-1 sequencer，必须设 `GLO → MIDI 2 → OUT = SEQ`**；`OUT = KEYS` 只发键盘，sequencer 不会从 USB 发出。
 
 **限制：**
 
@@ -147,7 +148,7 @@ Sloop 2.7 的 **`ARP 2 → HOLD`** 在 `ARP MODE = OFF` 时会把收到的 MIDI 
 - Host build 用 **64 帧音频块（1.45 ms）** 作为 MIDI 时钟；USB 发送在独立 `usb-midi` 任务里，UI 全屏刷新不会长时间挡住 MIDI。
 - **channel 10 现在保留在事件数组里**：普通 build 的本地钢琴仍跳过鼓，但 Host build 会把鼓音符原样发给 FM-1（Sloop `DR MAP=GM`）。
 - 当前 MIDI 消息：Note On/Off、CC64 延音、All Notes Off/All Sound Off；**不发 Program Change**、Pitch Bend；**接收** FM-1 的 MIDI clock。
-- MIDI INPUT 只录 FM-1 USB MIDI OUT；外接键盘插 FM-1 TRS IN 不会被 Sloop 回传。
+- RECORDER 只录 FM-1 USB MIDI OUT；外接键盘插 FM-1 TRS IN 不会被 Sloop 回传。
 - FM-1 是 USB MIDI + USB Audio 复合设备；Host 只 claim MIDIStreaming，忽略 Audio。若其配置描述符超过 256 字节，Arduino Host 栈可能在枚举阶段失败，需要改 IDF 限制或换 Host 栈。
 - 只用 USB-C；没有 Grove/TRS 依赖。
 - 首次连接、供电、描述符兼容性仍需真机确认。
@@ -165,40 +166,42 @@ Sloop 2.7 的 **`ARP 2 → HOLD`** 在 `ARP MODE = OFF` 时会把收到的 MIDI 
 
 ## 3. 按键
 
-Cardputer 的方向键是 `Fn` 层，实际键位：
+Cardputer-Adv 的四个方向键直接按，不需要 `Fn`：
 
-```
-        Fn + ;   = 上
-Fn + ,  = 左      Fn + /  = 右
-        Fn + .   = 下
+```text
+        ;   = 上
+,  = 左      /  = 右
+        .   = 下
 ```
 
 | 场景 | 键 | 动作 |
 |---|---|---|
-| 列表 | `Enter` / `Space` | 进目录 / 播放 |
-| 列表 | `Fn+;` / `Fn+.` | 上 / 下 |
-| 列表 | `Fn+,` / `Backspace` | 返回上级 |
-| 列表 | `Fn+/` | 进入选中的目录 |
-| 列表 | `D` | 删除选中的 `.mid`；`Enter` 确认，`Backspace` 取消 |
-| 播放 | `Space` / `Enter` | 播放 / 暂停 |
-| 播放 | `Fn+,` / `Fn+/` | −5 s / +5 s |
-| 播放 | `[` / `]` | 进度 −1 s / +1 s |
-| 播放 | `Fn+[` / `Fn+]` | 速度 −0.1 / +0.1（0.1–3.0） |
-| 播放 | `Tab` | 切换到钢琴卷帘（Host build 继续 Tab 到 MIDI INPUT） |
-| 卷帘 | `Tab` | 切回播放页（Host build 继续 Tab 到 MIDI INPUT） |
-| 卷帘 | `[` / `]` | 进度 −1 s / +1 s |
-| 卷帘 | `Backspace` | 返回播放页 |
-| MIDI INPUT | `1` / `2` / `3` / `4` | 选择/取消 CH1 / CH2 / CH3 / CH10（至少保留一个） |
-| MIDI INPUT | `R` / `Enter` / `Space` | 开始/停止录音；停止后写 `/midi/MyMIDI/<PREFIX>_TAKE_xxxx.MID` |
-| MIDI INPUT | `Tab` | 回播放页；若正在录音会先停止并保存 |
-| MIDI INPUT | `Backspace` | 回播放页；若正在录音会先停止并保存 |
-| 播放/卷帘 | `Fn+;` / `Fn+.` | 音量 +5 / −5 |
-| 播放/卷帘 | `,` / `.` | 上一首 / 下一首 |
-| 播放/卷帘 | `L` | 循环开 / 关 |
-| 播放 | `Backspace` | 停止并返回 |
+| 文件管理器 | `Enter` / `Space` | 进目录 / 播放 |
+| 文件管理器 | `;` / `.` | 上 / 下 |
+| 文件管理器 | `,` / `Backspace` | 返回上级 |
+| 文件管理器 | `/` | 进入选中的目录 |
+| 文件管理器 | `D` | 删除选中的 `.mid`；`Enter` 确认，`Backspace` 取消 |
+| 文件管理器 | `Tab` | 切到播放器 |
+| 播放器 | `Space` / `Enter` | 播放 / 暂停 |
+| 播放器 | `,` / `/` | −5 s / +5 s |
+| 播放器 | `[` / `]` | 进度 −1 s / +1 s |
+| 播放器 | `Fn+[` / `Fn+]` | 速度 −0.1 / +0.1（0.1–3.0） |
+| 播放器 | `Tab` | 切到钢琴窗 |
+| 播放器 | `Backspace` | 停止并回文件管理器 |
+| 钢琴窗 | `Tab` | 切到录制器 |
+| 钢琴窗 | `Backspace` | 回播放器 |
+| 钢琴窗 | `,` / `/` | −5 s / +5 s |
+| 钢琴窗 | `[` / `]` | 进度 −1 s / +1 s |
+| 录制器 | `1` / `2` / `3` / `4` | 选择/取消 CH1 / CH2 / CH3 / CH10（至少保留一个） |
+| 录制器 | `R` / `Enter` / `Space` | 开始/停止录音；停止后写 `/midi/MyMIDI/<PREFIX>_TAKE_xxxx.MID` |
+| 录制器 | `Tab` | 回文件管理器；若正在录音会先停止并保存 |
+| 录制器 | `Backspace` | 回播放器；若正在录音会先停止并保存 |
+| 播放器/钢琴窗 | `;` / `.` | 音量 +5 / −5 |
+| 播放器/钢琴窗 | `P` / `N` | 上一首 / 下一首 |
+| 播放器/钢琴窗 | `L` | 循环开 / 关 |
 | 全局 | `-` / `=` | 音量 −10 / +10 |
 
-> `Fn+,` / `Fn+/` 是左右方向键（与 M5Cardputer 键位一致），因此 seek 用这两个；`Fn+;` / `Fn+.` 是上下，用于音量。
+> 方向键直接用 `;` / `,` / `.` / `/`；`P` / `N` 换曲；`Fn+[` / `Fn+]` 只用于倍速。
 
 ### 删除文件
 

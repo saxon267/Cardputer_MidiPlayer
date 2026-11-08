@@ -13,8 +13,16 @@ int main()
     rec.toggleChannel(9);   // CH10
 
     rec.startRecording(1200);  // 120 BPM
-    g_test_us += 0;
-    rec.add(0x90, 60, 100);       // CH1 note on
+    if (!rec.armed() || rec.elapsedUs() != 0) {
+        std::printf("RESULT FAIL armed\n");
+        return 1;
+    }
+    g_test_us += 5000000;          // 5 s of silence must be trimmed
+    rec.add(0x90, 60, 100);       // CH1 note on, becomes t=0
+    if (rec.events()[0].t != 0) {
+        std::printf("RESULT FAIL leading trim\n");
+        return 1;
+    }
     g_test_us += 250000;
     rec.add(0x91, 64, 90);        // CH2 note on
     g_test_us += 250000;

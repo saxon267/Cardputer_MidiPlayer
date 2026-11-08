@@ -25,6 +25,7 @@ void MidiRecorder::beginPreview()
     clearLocked();
     _active = true;
     _recording = false;
+    _armed = false;
     _startUs = (uint32_t)esp_timer_get_time();
     portEXIT_CRITICAL(&s_mux);
 }
@@ -38,7 +39,8 @@ bool MidiRecorder::startRecording(uint16_t bpmX10)
     _bpmX10 = bpmX10;
     _active = true;
     _recording = true;
-    _startUs = (uint32_t)esp_timer_get_time();
+    _armed = true;
+    _startUs = 0;
     portEXIT_CRITICAL(&s_mux);
     return true;
 }
@@ -48,10 +50,11 @@ void MidiRecorder::stopRecording()
     portENTER_CRITICAL(&s_mux);
     if (_recording) {
         uint32_t now = (uint32_t)esp_timer_get_time();
-        _durationUs = now - _startUs;
+        _durationUs = _armed ? 0 : (now - _startUs);
     }
     _recording = false;
     _active = false;
+    _armed = false;
     portEXIT_CRITICAL(&s_mux);
 }
 
@@ -63,6 +66,7 @@ uint32_t MidiRecorder::durationUs() const
 uint32_t MidiRecorder::elapsedUs() const
 {
     if (!_active) return _durationUs;
+    if (_armed) return 0;
     return (uint32_t)esp_timer_get_time() - _startUs;
 }
 
@@ -93,17 +97,22 @@ void MidiRecorder::add(uint16_t status, uint8_t d1, uint8_t d2)
         portEXIT_CRITICAL(&s_mux);
         return;
     }
+    uint32_t now = (uint32_t)esp_timer_get_time();
+    if (_armed) {
+        _startUs = now;
+        _armed = false;
+    }
     if (_n >= MAX_EVENTS) {
         _full = true;
         _fullRecording = _recording;
-        _durationUs = (uint32_t)esp_timer_get_time() - _startUs;
+        _durationUs = now - _startUs;
         _recording = false;
         _active = false;
         portEXIT_CRITICAL(&s_mux);
         return;
     }
     RecEvent& e = _ev[_n];
-    e.t = (uint32_t)esp_timer_get_time() - _startUs;
+    e.t = now - _startUs;
     e.type = type;
     e.note = note;
     e.vel = vel;

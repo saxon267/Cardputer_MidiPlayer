@@ -336,7 +336,7 @@ void UI::liveRow()
 // ---------------------------------------------------------------- screens
 void UI::drawLibrary()
 {
-    topbar("LIBRARY");
+    topbar("FILES");
 
     rect(0, 13, SCR_W, 12, C_PANEL);
     hline(0, 24, SCR_W, C_LINE);
@@ -525,7 +525,7 @@ void UI::drawPlayer()
 
 void UI::drawRoll()
 {
-    topbar("ROLL");
+    topbar("PIANO");
 
     const int RX = 18;
     const int RY = 14;
@@ -537,7 +537,7 @@ void UI::drawRoll()
         textC(SCR_W / 2, 55, "NO SONG", C_FAINT, true, 1);
         hline(0, 110, SCR_W, C_LINE);
         rect(0, 111, SCR_W, 24, C_BAR);
-        textC(SCR_W / 2, 124, "TAB PLAYER", C_DIM);
+        textC(SCR_W / 2, 124, "TAB RECORDER", C_DIM);
         return;
     }
 
@@ -708,12 +708,12 @@ void UI::drawRoll()
 #endif
     textR(234, 113, spd, C_AQUA, true, 1);
 
-    textC(SCR_W / 2, 124, "[ ] SEEK   TAB PLAYER", C_DIM);
+    textC(SCR_W / 2, 124, "[ ] SEEK   TAB RECORDER", C_DIM);
 }
 
 void UI::drawInput()
 {
-    topbar("INPUT");
+    topbar("RECORDER");
 
 #if USB_MIDI_HOST
     const int RX = 18;
@@ -873,7 +873,10 @@ void UI::drawInput()
     vline(px, RY, RH, C_TXT);
     _c.fillTriangle(px - 2, RY, px + 2, RY, px, RY + 4, C_ACC);
 
-    if (n == 0 && !rec.recording()) {
+    if (rec.recording() && rec.armed()) {
+        textC(SCR_W / 2, 54, "WAIT MIDI...", C_AMB, true, 1);
+        textC(SCR_W / 2, 67, "FM1 OUT = SEQ", C_FAINT, false, 1);
+    } else if (n == 0 && !rec.recording()) {
         textC(SCR_W / 2, 58, "PRESS R TO RECORD", C_FAINT, false, 1);
     }
 
@@ -900,7 +903,7 @@ void UI::drawInput()
     snprintf(bpm, sizeof(bpm), "%u BPM", (unsigned)(rec.bpmX10() / 10));
     textR(234, 103, bpm, C_DIM, false, 1);
 
-    textC(SCR_W / 2, 124, "R REC/STOP  TAB NEXT  1/2/3/4 CH", C_DIM);
+    textC(SCR_W / 2, 124, "R REC/STOP  1/2/3/4 CH  TAB NEXT", C_DIM);
 #else
     textC(SCR_W / 2, 55, "USB HOST BUILD ONLY", C_FAINT, true, 1);
     hline(0, 100, SCR_W, C_LINE);
@@ -911,7 +914,7 @@ void UI::drawInput()
 
 void UI::drawNoFiles()
 {
-    topbar("LIBRARY");
+    topbar("FILES");
     rect(0, 13, SCR_W, 12, C_PANEL);
     hline(0, 24, SCR_W, C_LINE);
     iconFolder(5, 16, C_AMB);
@@ -936,7 +939,7 @@ void UI::drawNoFiles()
 
 void UI::drawNoSd()
 {
-    topbar("LIBRARY");
+    topbar("FILES");
     rect(0, 13, SCR_W, 12, C_PANEL);
     hline(0, 24, SCR_W, C_LINE);
     iconFolder(5, 16, C_FAINT);

@@ -31,6 +31,7 @@ public:
     void add(uint16_t status, uint8_t d1, uint8_t d2);
 
     bool     recording() const { return _recording; }
+    bool     armed() const { return _armed; }
     bool     active() const { return _active; }
     bool     full() const { return _full; }
     bool     fullTake() const { return _fullRecording; }
@@ -49,6 +50,7 @@ private:
     volatile int _n = 0;
     volatile bool _active = false;
     volatile bool _recording = false;
+    volatile bool _armed = false;
     volatile bool _full = false;
     volatile bool _fullRecording = false;
     uint32_t _startUs = 0;
